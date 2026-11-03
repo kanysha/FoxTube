@@ -1,0 +1,4 @@
+interface:
+  display_name: "FoxTube: безопасность"
+  short_description: "Проверка ACL, сессий, загрузок и приватных медиа"
+  default_prompt: "Используй $foxtube-security для проверки безопасности назначенного изменения FoxTube с воспроизводимыми замечаниями."

@@ -1,0 +1,27 @@
+services:
+  browser:
+    image: foxtube-browser:local
+    build:
+      context: .
+      dockerfile: Dockerfile.browser
+    profiles: [browser]
+    user: "1000:1000"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 256
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    shm_size: 256m
+    environment:
+      FOXTUBE_TEST_BASE_URL: http://nginx:8080
+      FOXTUBE_BROWSER_ARTIFACTS: /artifacts
+    volumes:
+      - browser_artifacts:/artifacts
+    networks: [frontend]
+
+volumes:
+  browser_artifacts:

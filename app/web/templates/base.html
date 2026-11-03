@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#ffffff">
+    {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
+    <title>{{ page_title }} · FoxTube</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/app.css">
+    <link rel="stylesheet" href="/static/video.css">
+    <script src="/static/app.js" defer></script>
+    <script src="/static/auth.js" defer></script>
+    <script src="/static/video.js" defer></script>
+  </head>
+  <body class="app-shell">
+    <a class="skip-link" href="#main-content">Перейти к содержимому</a>
+
+    <header class="site-header">
+      <div class="header-brand">
+        <button class="icon-button menu-toggle" type="button" aria-label="Открыть меню" aria-controls="site-sidebar" aria-expanded="false" data-menu-toggle>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <a class="brand" href="/" aria-label="FoxTube — главная">
+          <img class="brand-mark" src="/static/logo.svg" width="40" height="32" alt="">
+          <span>Fox<span class="brand-tube">Tube</span></span>
+        </a>
+      </div>
+
+      <form class="search-form" action="/search" method="get" role="search">
+        <label class="visually-hidden" for="site-search">Поиск видео по названию</label>
+        <input id="site-search" class="search-input" type="search" name="q" value="{{ query }}" placeholder="Введите название видео" maxlength="200" autocomplete="off" enterkeyhint="search">
+        <button class="search-submit" type="submit" aria-label="Найти видео">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.75"/><path d="m16 16 4.5 4.5"/></svg>
+        </button>
+      </form>
+
+      <div class="header-actions">
+        {% if viewer %}
+        <a class="account-link" href="/account"{% if active_page == 'account' %} aria-current="page"{% endif %} aria-label="Аккаунт: {{ viewer.display_name }}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
+          <span>{{ viewer.display_name }}</span>
+        </a>
+        <form class="logout-form" action="/api/v1/auth/logout" method="post" data-auth-form="logout">
+          <button class="icon-button logout-button" type="submit" aria-label="Выйти из аккаунта" title="Выйти из аккаунта">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M14 8l4 4-4 4M9 12h10"/></svg>
+          </button>
+          <p class="header-error" data-auth-error role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></p>
+        </form>
+        {% else %}
+        <a class="login-link" href="/login"{% if active_page == 'login' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
+          <span>Войти</span>
+        </a>
+        {% endif %}
+      </div>
+    </header>
+
+    <button class="sidebar-backdrop" type="button" aria-label="Закрыть меню" data-menu-backdrop hidden></button>
+    <aside class="sidebar" id="site-sidebar" aria-label="Боковое меню">
+      <nav class="primary-nav" aria-label="Основная навигация">
+        <a class="nav-item{% if active_page == 'home' %} is-active{% endif %}" href="/" aria-label="Главная"{% if active_page == 'home' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+          <span class="nav-label">Главная</span>
+        </a>
+        <a class="nav-item{% if active_page == 'search' %} is-active{% endif %}" href="/search" aria-label="Поиск"{% if active_page == 'search' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.75"/><path d="m16 16 4.5 4.5"/></svg>
+          <span class="nav-label">Поиск</span>
+        </a>
+        {% if viewer %}
+        <a class="nav-item{% if active_page == 'upload' %} is-active{% endif %}" href="/upload"{% if active_page == 'upload' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>
+          <span class="nav-label">Загрузить видео</span>
+        </a>
+        <a class="nav-item{% if active_page == 'studio' %} is-active{% endif %}" href="/studio"{% if active_page == 'studio' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m10 8 6 4-6 4z"/></svg>
+          <span class="nav-label">Мои видео</span>
+        </a>
+        <a class="nav-item{% if active_page == 'account' %} is-active{% endif %}" href="/account" aria-label="Мой аккаунт"{% if active_page == 'account' %} aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
+          <span class="nav-label">Мой аккаунт</span>
+        </a>
+        {% endif %}
+      </nav>
+      <div class="sidebar-note">
+        <span class="sidebar-note-rule"></span>
+        <p>У каждого видео<br>есть своя история.</p>
+        <span class="sidebar-wordmark">FoxTube</span>
+      </div>
+    </aside>
+
+    <main class="main-content" id="main-content" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

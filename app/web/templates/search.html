@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+  {% from "video_parts.html" import video_grid, pagination %}
+  <section class="page-heading" aria-labelledby="page-title">
+    <div>
+      <p class="eyebrow">Найдите свою историю</p>
+      <h1 id="page-title">{% if query %}Результаты поиска{% else %}Поиск видео{% endif %}</h1>
+      {% if query %}<p class="search-summary">По запросу <span>«{{ query }}»</span></p>{% endif %}
+    </div>
+  </section>
+
+  {% if videos and videos['items'] %}
+    <p class="list-summary">Найдено: {{ videos.total }}</p>
+    {{ video_grid(videos['items']) }}
+    {{ pagination(videos, '/search', query) }}
+  {% else %}
+  <section class="empty-state" aria-labelledby="empty-title">
+    <div class="empty-illustration search-illustration" aria-hidden="true">
+      <span class="illustration-dot dot-one"></span>
+      <span class="illustration-dot dot-two"></span>
+      <svg class="empty-search" viewBox="0 0 180 140"><circle class="illustration-shadow" cx="83" cy="68" r="40"/><circle class="illustration-screen" cx="77" cy="60" r="37"/><path class="illustration-handle" d="m104 88 31 31"/><path class="illustration-detail" d="M60 53h34M60 66h23"/><path class="illustration-spark" d="M137 22v14m-7-7h14M29 99v10m-5-5h10"/></svg>
+    </div>
+    {% if query %}
+      <p class="empty-kicker">Попробуем ещё раз?</p>
+      <h2 id="empty-title">Ничего не найдено</h2>
+      <p class="empty-description">Попробуйте другое название<br class="desktop-break"> или сократите запрос.</p>
+    {% else %}
+      <p class="empty-kicker">Всё начинается с интереса</p>
+      <h2 id="empty-title">Что хотите посмотреть?</h2>
+      <p class="empty-description">Введите название видео<br class="desktop-break"> в строке поиска сверху.</p>
+    {% endif %}
+    <a class="text-link" href="/">На главную <span aria-hidden="true">→</span></a>
+  </section>
+  {% endif %}
+{% endblock %}

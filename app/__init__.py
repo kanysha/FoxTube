@@ -1,0 +1,1 @@
+"""FoxTube application."""

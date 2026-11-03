@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth-layout" aria-labelledby="auth-title">
+  <div class="auth-intro">
+    <p class="eyebrow">Добро пожаловать в FoxTube</p>
+    <h1 id="auth-title">Начните свою историю</h1>
+    <p class="auth-description">Создайте аккаунт. Ваш канал появится вместе с ним.</p>
+  </div>
+  <div class="auth-card">
+    <h2>Создание аккаунта</h2>
+    <form class="auth-form" action="/api/v1/auth/register" method="post" data-auth-form="register" novalidate>
+      <div class="form-field">
+        <label for="register-name">Имя</label>
+        <input id="register-name" name="display_name" type="text" autocomplete="nickname" minlength="1" maxlength="80" aria-describedby="register-name-hint" required>
+        <p class="form-hint" id="register-name-hint">Так вас будут видеть другие пользователи.</p>
+      </div>
+      <div class="form-field">
+        <label for="register-email">Email</label>
+        <input id="register-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required>
+      </div>
+      <div class="form-field">
+        <label for="register-password">Пароль</label>
+        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="register-password-hint" required>
+        <p class="form-hint" id="register-password-hint">От 12 до 128 символов. Можно использовать пробелы.</p>
+      </div>
+      <p class="form-message" data-auth-error role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></p>
+      <button class="primary-button" type="submit" data-pending-label="Создаём аккаунт…">Создать аккаунт</button>
+      <noscript><p class="form-hint">Для регистрации включите JavaScript в браузере.</p></noscript>
+    </form>
+    <p class="auth-switch">Уже есть аккаунт? <a href="/login">Войти</a></p>
+  </div>
+</section>
+{% endblock %}

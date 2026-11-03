@@ -1,0 +1,39 @@
+services:
+  api:
+    image: foxtube-dev:${FOXTUBE_IMAGE_TAG:-local}
+    build:
+      target: development
+  worker:
+    image: foxtube-dev:${FOXTUBE_IMAGE_TAG:-local}
+  migrate:
+    image: foxtube-dev:${FOXTUBE_IMAGE_TAG:-local}
+  test:
+    image: foxtube-dev:${FOXTUBE_IMAGE_TAG:-local}
+    build:
+      context: .
+      target: development
+    profiles: [test]
+    user: "1000:1000"
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    command: [pytest, -m, integration]
+    environment:
+      FOXTUBE_ENV: test
+      FOXTUBE_PUBLIC_ORIGIN: http://nginx:8080
+      FOXTUBE_DB_HOST: db
+      FOXTUBE_DB_PORT: "5432"
+      FOXTUBE_DB_NAME: ${POSTGRES_DB:-foxtube}
+      FOXTUBE_DB_USER: ${POSTGRES_USER:-foxtube_migrator}
+      FOXTUBE_DB_PASSWORD: ${POSTGRES_PASSWORD:?Test configuration was not generated}
+      FOXTUBE_MEDIA_ROOT: /var/lib/foxtube/media
+      FOXTUBE_TEST_BASE_URL: http://nginx:8080
+      FOXTUBE_TEST_API_DB_PASSWORD: ${API_DB_PASSWORD:?Test configuration was not generated}
+      FOXTUBE_TEST_WORKER_DB_PASSWORD: ${WORKER_DB_PASSWORD:?Test configuration was not generated}
+    volumes:
+      - media:/var/lib/foxtube/media
+    networks: [frontend, backend]

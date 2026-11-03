@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Ваш FoxTube</p>
+    <h1>Мой аккаунт</h1>
+  </div>
+</section>
+<section class="account-card" aria-labelledby="account-name">
+  <div class="account-summary">
+    <span class="account-avatar" aria-hidden="true">{{ viewer.display_name[:1] | upper }}</span>
+    <div>
+      <h2 id="account-name">{{ viewer.display_name }}</h2>
+      <p>Вы вошли в свой аккаунт.</p>
+    </div>
+  </div>
+  <dl class="account-details">
+    <div><dt>Email</dt><dd>{{ viewer.email }}</dd></div>
+    <div><dt>Имя</dt><dd>{{ viewer.display_name }}</dd></div>
+    <div><dt>Адрес канала</dt><dd>@{{ viewer.channel_handle }}</dd></div>
+    <div><dt>Роль</dt><dd>{{ {'user': 'Пользователь', 'moderator': 'Модератор', 'admin': 'Администратор'}.get(viewer.role, viewer.role) }}</dd></div>
+  </dl>
+  <div class="button-row account-video-actions">
+    <a class="primary-button" href="/upload">Загрузить видео</a>
+    <a class="secondary-button" href="/studio">Мои видео</a>
+  </div>
+</section>
+{% endblock %}

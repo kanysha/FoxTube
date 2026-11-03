@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <div><p class="eyebrow">Поделитесь своей историей</p><h1>Загрузить видео</h1></div>
+  <a class="secondary-button" href="/studio">Мои видео</a>
+</section>
+<section class="upload-layout">
+  <form class="video-form upload-form" data-upload-form>
+    <div class="file-select">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 32V7m-9 9 9-9 9 9M8 31v9h32v-9"/></svg>
+      <label for="video-file">Выберите видео</label>
+      <input id="video-file" name="file" type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm" required>
+      <p class="form-hint">MP4, MOV или WebM · до 500 МиБ</p>
+    </div>
+    <div class="form-field"><label for="upload-title">Название</label><input id="upload-title" name="title" type="text" maxlength="200" required></div>
+    <div class="form-field"><label for="upload-description">Описание</label><textarea id="upload-description" name="description" rows="4" maxlength="5000"></textarea></div>
+    <div class="form-field"><label for="upload-visibility">Кто может смотреть</label><select id="upload-visibility" name="visibility"><option value="public">Все</option><option value="private">Только я и выбранные пользователи</option></select><p class="form-hint">Разрешения для приватного видео можно выдать после загрузки.</p></div>
+    <p class="form-message" data-video-error role="status" aria-live="polite" tabindex="-1" hidden></p>
+    <div class="button-row"><button class="primary-button" type="submit" data-upload-submit>Загрузить видео</button><button class="secondary-button" type="button" data-upload-cancel hidden>Отменить</button></div>
+    <noscript><p class="form-message">Для загрузки видео включите JavaScript в браузере.</p></noscript>
+  </form>
+  <aside class="upload-aside">
+    <div class="upload-progress-card" data-upload-progress hidden>
+      <p class="eyebrow">Ваше видео</p><h2 data-upload-status>Подготовка к загрузке</h2>
+      <label class="progress-label" for="send-progress">Отправка файла <span data-send-percent>0%</span></label><progress id="send-progress" max="100" value="0"></progress>
+      <p class="form-hint" data-processing-note>После отправки начнётся обработка.</p>
+      <a class="primary-button upload-watch-link" data-upload-watch hidden>Смотреть видео</a>
+      <a class="text-link" data-upload-manage hidden>Настройки видео →</a>
+    </div>
+    <div class="upload-guidance"><h2>Перед загрузкой</h2><p>До 20 минут, до 1080p и 60 кадров в секунду. Вертикальные видео и видео без звука тоже подходят.</p><p>Мы подготовим версию для просмотра до 720p. Пока идёт отправка, оставьте эту страницу открытой.</p></div>
+  </aside>
+</section>
+{% endblock %}

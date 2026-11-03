@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "video_parts.html" import status_label %}
+{% block content %}
+<article class="watch-page" data-watch-video="{{ video.id }}" data-video-status="{{ video.status }}">
+  {% if video.playback_url %}
+  <div class="video-player-wrap"><video class="video-player" controls playsinline preload="metadata"{% if video.poster_url %} poster="{{ video.poster_url }}"{% endif %} aria-label="{{ video.title }}"><source src="{{ video.playback_url }}" type="video/mp4">Ваш браузер не поддерживает воспроизведение видео.</video></div>
+  <p class="form-message" data-playback-error role="status" hidden>Не удалось воспроизвести видео. Проверьте соединение и обновите страницу.</p>
+  {% else %}
+  <section class="processing-state" aria-live="polite"><span class="processing-icon" aria-hidden="true">{% if video.status in ['FAILED', 'READY'] %}!{% else %}↻{% endif %}</span><h2 data-watch-status>{% if video.status == 'READY' %}Просмотр недоступен{% else %}{{ status_label(video.status) }}{% endif %}</h2><p data-watch-note>{% if video.error %}{{ video.error }}{% elif video.status == 'READY' %}Видео скрыто. Изменение настроек доступа не отменяет ограничение модерации.{% elif video.status == 'UPLOADING' %}Отправка файла ещё не завершена. Вернитесь к странице загрузки или удалите этот черновик.{% else %}Готовим ваше видео для просмотра. Страница обновится, когда оно будет готово.{% endif %}</p>{% if video.status == 'UPLOADING' %}<a class="text-link" href="/upload">Перейти к загрузке →</a>{% endif %}</section>
+  {% endif %}
+  <div class="watch-heading"><h1>{{ video.title }}</h1><p class="watch-meta"><span class="channel-avatar" aria-hidden="true">{{ video.channel_name[:1] | upper }}</span><strong>{{ video.channel_name }}</strong><span>{{ video.created_at[:10] }}</span>{% if video.visibility == 'private' %}<span class="privacy-badge">Приватное</span>{% endif %}</p></div>
+  {% if video.description %}<div class="video-description">{{ video.description }}</div>{% endif %}
+  {% if video.can_manage %}
+  <section class="video-owner-panel" data-video-owner="{{ video.id }}">
+    <h2>Настройки видео</h2><p class="form-hint">Эти настройки видны только вам.</p>
+    <form class="video-form" data-video-edit>
+      <div class="form-field"><label for="edit-title">Название</label><input id="edit-title" name="title" type="text" maxlength="200" value="{{ video.title }}" required></div>
+      <div class="form-field"><label for="edit-description">Описание</label><textarea id="edit-description" name="description" rows="4" maxlength="5000">{{ video.description }}</textarea></div>
+      <div class="form-field"><label for="edit-visibility">Кто может смотреть</label><select id="edit-visibility" name="visibility"><option value="public"{% if video.visibility == 'public' %} selected{% endif %}>Все</option><option value="private"{% if video.visibility == 'private' %} selected{% endif %}>Только я и выбранные пользователи</option></select></div>
+      <p class="form-message" data-video-error role="status" aria-live="polite" tabindex="-1" hidden></p><p class="success-message" data-edit-success role="status" hidden>Изменения сохранены.</p>
+      <div class="button-row"><button class="primary-button" type="submit">Сохранить</button><button class="danger-button" type="button" data-video-delete>Удалить видео</button></div>
+    </form>
+    <section class="video-grants" aria-labelledby="grants-title">
+      <h3 id="grants-title">Разрешения для приватного видео</h3><p class="form-hint">Введите точный email пользователя, который уже зарегистрирован на FoxTube. При публичном доступе видео может смотреть каждый.</p>
+      <form class="video-form grant-form" data-video-grant><div class="form-field"><label for="grant-email">Email пользователя</label><input id="grant-email" name="email" type="email" maxlength="254" required autocomplete="off"></div><button class="secondary-button" type="submit">Разрешить просмотр</button><p class="form-message" data-video-error role="status" aria-live="polite" tabindex="-1" hidden></p></form>
+      <p class="form-hint" data-grants-empty>Загружаем список разрешений…</p><ul class="grants-list" data-grants-list></ul>
+    </section>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

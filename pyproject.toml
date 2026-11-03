@@ -1,0 +1,50 @@
+[project]
+name = "foxtube"
+version = "0.1.0"
+description = "FoxTube — видеоплатформа на FastAPI и PostgreSQL"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "alembic>=1.20.1,<1.21",
+  "argon2-cffi>=25.1,<26",
+  "email-validator>=2.2,<3",
+  "fastapi>=0.162.0,<0.163",
+  "jinja2>=3.1.6,<3.2",
+  "psycopg[binary]>=3.3.7,<3.4",
+  "pydantic>=2.12,<3",
+  "pydantic-settings>=2.16.2,<2.17",
+  "sqlalchemy>=2.1.6,<2.2",
+  "uvicorn>=0.54.0,<0.55",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<1",
+  "mypy>=1.19,<2",
+  "pip-audit>=2.10,<3",
+  "pytest>=9,<10",
+  "ruff>=0.15,<1",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["app"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers -ra"
+cache_dir = "/tmp/foxtube-pytest"
+markers = ["integration: real PostgreSQL, Nginx and worker in an isolated Compose project"]

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth-layout" aria-labelledby="auth-title">
+  <div class="auth-intro">
+    <p class="eyebrow">Ваш FoxTube</p>
+    <h1 id="auth-title">С возвращением</h1>
+    <p class="auth-description">Войдите в свой аккаунт, чтобы продолжить.</p>
+  </div>
+  <div class="auth-card">
+    <h2>Вход в аккаунт</h2>
+    <form class="auth-form" action="/api/v1/auth/login" method="post" data-auth-form="login" novalidate>
+      <div class="form-field">
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required>
+      </div>
+      <div class="form-field">
+        <label for="login-password">Пароль</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required>
+      </div>
+      <p class="form-message" data-auth-error role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></p>
+      <button class="primary-button" type="submit" data-pending-label="Входим…">Войти</button>
+      <noscript><p class="form-hint">Для входа включите JavaScript в браузере.</p></noscript>
+    </form>
+    <p class="auth-switch">Первый раз здесь? <a href="/register">Создать аккаунт</a></p>
+  </div>
+</section>
+{% endblock %}

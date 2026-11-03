@@ -1,0 +1,4 @@
+interface:
+  display_name: "FoxTube: приёмка"
+  short_description: "Проверки требований, видео, сбоев и установки"
+  default_prompt: "Используй $foxtube-acceptance для проверки назначенных критериев FoxTube с командами и доказательствами."

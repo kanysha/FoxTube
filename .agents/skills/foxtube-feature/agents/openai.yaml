@@ -1,0 +1,4 @@
+interface:
+  display_name: "FoxTube: разработка функции"
+  short_description: "API, PostgreSQL и экран одной законченной функции"
+  default_prompt: "Используй $foxtube-feature для реализации назначенного пользовательского сценария FoxTube."

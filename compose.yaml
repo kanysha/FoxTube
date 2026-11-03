@@ -1,0 +1,169 @@
+name: foxtube
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app: &app
+  image: foxtube-app:${FOXTUBE_IMAGE_TAG:-local}
+  user: "1000:1000"
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  pids_limit: 256
+  logging: *logging
+  environment: &app-environment
+    FOXTUBE_ENV: ${FOXTUBE_ENV:-development}
+    FOXTUBE_PUBLIC_ORIGIN: ${FOXTUBE_PUBLIC_ORIGIN:-http://localhost:8080}
+    FOXTUBE_DB_HOST: db
+    FOXTUBE_DB_PORT: "5432"
+    FOXTUBE_DB_NAME: ${POSTGRES_DB:-foxtube}
+    FOXTUBE_MEDIA_ROOT: /var/lib/foxtube/media
+  networks: [backend]
+  volumes:
+    - media:/var/lib/foxtube/media
+
+services:
+  db:
+    image: foxtube-db:17-local
+    build:
+      context: ./deploy/postgres
+    init: true
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cpus: 1
+    mem_limit: 1g
+    pids_limit: 128
+    stop_grace_period: 30s
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-foxtube}
+      POSTGRES_USER: ${POSTGRES_USER:-foxtube_migrator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run bash scripts/bootstrap.sh to create .env}
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?Run bash scripts/bootstrap.sh to create .env}
+      WORKER_DB_PASSWORD: ${WORKER_DB_PASSWORD:?Run bash scripts/bootstrap.sh to create .env}
+    command: [postgres, -c, max_connections=40, -c, shared_buffers=128MB]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" &&
+          [ "$$(psql --no-psqlrc --set=ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -tAc
+          "SELECT count(*) FROM pg_roles WHERE rolname IN ('foxtube_api', 'foxtube_worker') AND rolcanlogin")" = "2" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  api:
+    <<: *app
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 768m
+    environment:
+      <<: *app-environment
+      FOXTUBE_DB_USER: foxtube_api
+      FOXTUBE_DB_PASSWORD: ${API_DB_PASSWORD:?Run bash scripts/bootstrap.sh to create .env}
+    networks: [frontend, backend]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).close()"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 10s
+
+  worker:
+    <<: *app
+    restart: unless-stopped
+    cpus: 2
+    mem_limit: 2g
+    stop_grace_period: 30s
+    command: [python, -m, app.worker]
+    environment:
+      <<: *app-environment
+      FOXTUBE_DB_USER: foxtube_worker
+      FOXTUBE_DB_PASSWORD: ${WORKER_DB_PASSWORD:?Run bash scripts/bootstrap.sh to create .env}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -m, app.worker, --healthcheck]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 10s
+
+  nginx:
+    image: nginx:stable-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949
+    user: "101:101"
+    entrypoint: [nginx]
+    command: [-g, "daemon off;"]
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.5
+    mem_limit: 128m
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    logging: *logging
+    ports:
+      - "${FOXTUBE_BIND:-127.0.0.1}:${FOXTUBE_PORT:-8080}:8080"
+    volumes:
+      - type: bind
+        source: ./deploy/nginx/nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - media:/srv/foxtube/media:ro
+    networks: [frontend]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health/live]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    <<: *app
+    profiles: [tools]
+    restart: "no"
+    cpus: 1
+    mem_limit: 512m
+    command: [alembic, upgrade, head]
+    environment:
+      <<: *app-environment
+      FOXTUBE_DB_USER: ${POSTGRES_USER:-foxtube_migrator}
+      FOXTUBE_DB_PASSWORD: ${POSTGRES_PASSWORD:?Run bash scripts/bootstrap.sh to create .env}
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  frontend:
+  backend:
+    internal: true
+
+volumes:
+  pgdata:
+  media:

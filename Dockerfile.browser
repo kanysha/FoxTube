@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337
+
+ARG TARGETARCH
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+       ca-certificates curl unzip ffmpeg fonts-liberation \
+       libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libcairo2 \
+       libcups2 libdbus-1-3 libdrm2 libgbm1 libglib2.0-0 libnspr4 libnss3 \
+       libpango-1.0-0 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
+       libxfixes3 libxkbcommon0 libxrandr2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Official branded Chrome for Testing includes H.264. Both downloads and their
+# SHA-256 are pinned; ARM hosts do not need x86 emulation for the browser.
+RUN case "$TARGETARCH" in \
+      arm64) chrome_platform=linux-arm64; chrome_directory=chrome-linux-arm64; \
+             chrome_sha=1f496a826c9ba4d6a5f5bf2de686145fe718528c2cc3dbeb96b5893b89653724 ;; \
+      amd64) chrome_platform=linux64; chrome_directory=chrome-linux64; \
+             chrome_sha=b711c720f774be355197f32edf37e0651418ba036d92446ee2da19ac017540a7 ;; \
+      *) echo 'Chrome test image supports arm64 and amd64' >&2; exit 1 ;; \
+    esac \
+    && curl --fail --show-error --location --retry 3 \
+       "https://storage.googleapis.com/chrome-for-testing-public/156.0.8078.80/${chrome_platform}/${chrome_directory}.zip" \
+       --output /tmp/chrome.zip \
+    && echo "${chrome_sha}  /tmp/chrome.zip" | sha256sum --check --status \
+    && unzip -q /tmp/chrome.zip -d /tmp \
+    && mkdir -p /opt/google \
+    && mv "/tmp/${chrome_directory}" /opt/google/chrome \
+    && rm /tmp/chrome.zip
+
+COPY tests/browser/requirements.txt /browser/requirements.txt
+RUN pip install --no-cache-dir --requirement /browser/requirements.txt \
+    && groupadd --gid 1000 browser \
+    && useradd --uid 1000 --gid 1000 --home-dir /tmp/browser-home --no-create-home browser \
+    && mkdir -p /artifacts \
+    && chown 1000:1000 /artifacts
+COPY tests/browser/run.py /browser/run.py
+WORKDIR /browser
+USER 1000:1000
+CMD ["python", "/browser/run.py"]

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+  {% from "video_parts.html" import video_grid, pagination %}
+  <section class="page-heading" aria-labelledby="page-title">
+    <div>
+      <p class="eyebrow">Смотрите и открывайте</p>
+      <h1 id="page-title">Главная</h1>
+    </div>
+    {% if viewer %}<a class="secondary-button" href="/upload">Загрузить видео</a>{% else %}<span class="page-heading-note">Хорошие истории рядом</span>{% endif %}
+  </section>
+
+  {% if videos['items'] %}
+    {{ video_grid(videos['items']) }}
+    {{ pagination(videos, '/', query) }}
+  {% else %}
+  <section class="empty-state" aria-labelledby="empty-title">
+    <div class="empty-illustration" aria-hidden="true">
+      <span class="illustration-dot dot-one"></span>
+      <span class="illustration-dot dot-two"></span>
+      <svg class="empty-video" viewBox="0 0 180 140"><rect class="illustration-shadow" x="35" y="34" width="112" height="80" rx="14"/><rect class="illustration-screen" x="25" y="24" width="112" height="80" rx="14"/><path class="illustration-play" d="m72 47 27 17-27 17z"/><path class="illustration-detail" d="M44 118h25m8 0h42"/><path class="illustration-spark" d="M151 21v14m-7-7h14M22 93v10m-5-5h10"/></svg>
+    </div>
+    <p class="empty-kicker">Лента видео</p>
+    <h2 id="empty-title">Здесь пока нет видео</h2>
+    <p class="empty-description">Когда появятся новые видео,<br class="desktop-break"> вы увидите их в этой ленте.</p>
+    <a class="text-link" href="/search">Перейти к поиску <span aria-hidden="true">→</span></a>
+  </section>
+  {% endif %}
+{% endblock %}

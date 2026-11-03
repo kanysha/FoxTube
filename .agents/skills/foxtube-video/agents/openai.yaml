@@ -1,0 +1,4 @@
+interface:
+  display_name: "FoxTube: видеоконвейер"
+  short_description: "Загрузка, очередь, FFmpeg и защищённый MP4"
+  default_prompt: "Используй $foxtube-video для разработки или проверки назначенной части видеоконвейера FoxTube."
