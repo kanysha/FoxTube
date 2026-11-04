@@ -12,7 +12,8 @@ services:
     security_opt: [no-new-privileges:true]
     cpus: 2
     mem_limit: 2g
-    pids_limit: 256
+    # Chrome needs additional renderer threads for the isolated privacy accounts.
+    pids_limit: 1024
     tmpfs:
       - /tmp:size=512m,mode=1777
     shm_size: 256m

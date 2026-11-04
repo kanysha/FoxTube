@@ -2,6 +2,7 @@
 
 import json
 import os
+import secrets
 import subprocess
 import tempfile
 from pathlib import Path
@@ -9,8 +10,11 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import uuid4
 
+from lifecycle import check_lifecycle
 from playwright.sync_api import Page, expect, sync_playwright
+from privacy import check_privacy
 from staff import check_moderation
+from swagger import check_swagger_upload
 
 
 def require(condition: bool, message: str) -> None:
@@ -175,12 +179,10 @@ def main() -> None:
             try:
                 page.goto(f"{base_url}/register")
                 page.get_by_label("Имя", exact=True).fill("Автор проверки видео")
-                page.get_by_label("Email", exact=True).fill(
-                    f"video-e2e-{uuid4().hex}@example.com"
-                )
-                page.get_by_label("Пароль", exact=True).fill(
-                    "Disposable-browser-passphrase-42!"
-                )
+                owner_email = f"video-e2e-{uuid4().hex}@example.com"
+                owner_password = secrets.token_urlsafe(32)
+                page.get_by_label("Email", exact=True).fill(owner_email)
+                page.get_by_label("Пароль", exact=True).fill(owner_password)
                 page.get_by_role("button", name="Создать аккаунт", exact=True).click()
                 page.wait_for_url(f"{base_url}/account")
                 report["registration"] = "passed"
@@ -289,6 +291,17 @@ def main() -> None:
                     ).click()
                     viewer.wait_for_url(f"{base_url}/account")
                     viewer.goto(f"{base_url}/channels/{created_video['channel_id']}")
+                    expect(
+                        viewer.locator(".primary-nav .nav-item.is-active")
+                    ).to_have_count(0)
+                    viewer.get_by_role("link", name="Мой канал", exact=True).click()
+                    expect(
+                        viewer.locator(".primary-nav .nav-item.is-active")
+                    ).to_have_text("Мой канал")
+                    expect(viewer.get_by_role("heading", level=1)).to_have_text(
+                        "Зритель проверки"
+                    )
+                    viewer.goto(f"{base_url}/channels/{created_video['channel_id']}")
                     subscription = viewer.locator("[data-channel-subscription] button")
                     expect(subscription).to_have_text("Подписаться")
                     subscription.click()
@@ -327,6 +340,18 @@ def main() -> None:
                     report["staff"] = check_moderation(
                         browser, base_url, video_id, viewer, viewer_email, errors
                     )
+                    viewer.goto(f"{base_url}/channels/{created_video['channel_id']}")
+                    subscription = viewer.locator("[data-channel-subscription] button")
+                    expect(subscription).to_have_attribute("aria-pressed", "true")
+                    subscription.click()
+                    expect(subscription).to_have_attribute("aria-pressed", "false")
+                    viewer.reload()
+                    expect(
+                        viewer.locator("[data-channel-subscription] button")
+                    ).to_have_attribute("aria-pressed", "false")
+                    viewer.goto(f"{base_url}/subscriptions")
+                    expect(viewer.locator(f'a[href="{watch_path}"]')).to_have_count(0)
+                    report["unsubscribe"] = "persisted; removed from subscription feed"
                 finally:
                     viewer_context.close()
 
@@ -357,6 +382,29 @@ def main() -> None:
                 page.screenshot(path=artifacts / "home-mobile.png", full_page=True)
                 page.goto(f"{base_url}/search?q={title}")
                 expect(page.locator(f'a[href="{watch_path}"]').first).to_be_visible()
+                report["privacy"] = check_privacy(
+                    browser,
+                    page,
+                    base_url,
+                    source,
+                    report["social"]["playlist"],
+                    artifacts,
+                    errors,
+                )
+                report["swagger"] = check_swagger_upload(
+                    page, base_url, source, artifacts
+                )
+                report["lifecycle"] = check_lifecycle(
+                    browser,
+                    page,
+                    base_url,
+                    video_id,
+                    owner_email,
+                    owner_password,
+                    report["social"]["playlist"],
+                    artifacts,
+                    errors,
+                )
                 require(not errors, "Browser reported a JavaScript exception")
                 require(
                     any(item["status"] in {200, 206} for item in playback_responses),
@@ -366,23 +414,49 @@ def main() -> None:
                 report["javascript_errors"] = errors
                 report["viewports"] = ["1440x900", "390x844"]
                 report["status"] = "passed"
-                print(
-                    "Chrome E2E passed: registration, UI upload, FFmpeg, H.264, "
-                    "advancing currentTime, seek, likes/comments/playlists, "
-                    "subscription/report, role change, moderation, audit, "
-                    "last admin protection, search, desktop/mobile."
-                )
             except BaseException as error:
+                report["status"] = "failed"
                 report["failure_type"] = type(error).__name__
                 # No request/response dumps or browser storage: they contain secrets.
-                page.screenshot(path=artifacts / "failure.png", full_page=True)
-                raise
+                try:
+                    page.screenshot(
+                        path=artifacts / "failure.png",
+                        full_page=True,
+                        mask=[
+                            page.locator(
+                                'input[type="password"], '
+                                ".curl-command, .request-snippets"
+                            )
+                        ],
+                    )
+                except Exception:
+                    report["failure_screenshot"] = "unavailable"
+                raise AssertionError(
+                    "Chrome E2E failed; see safe report.json"
+                ) from None
             finally:
+                close_failed = False
+                for resource in (context, browser):
+                    try:
+                        resource.close()
+                    except Exception as error:
+                        close_failed = True
+                        report["status"] = "failed"
+                        report["failure_type"] = type(error).__name__
                 (artifacts / "report.json").write_text(
                     json.dumps(report, ensure_ascii=False, indent=2) + "\n"
                 )
-                context.close()
-                browser.close()
+                if close_failed:
+                    raise RuntimeError(
+                        "Chrome cleanup failed; see safe report.json"
+                    ) from None
+    print(
+        "Chrome E2E passed: registration, UI upload, FFmpeg, H.264, "
+        "advancing currentTime, seek, likes/comments/playlists, "
+        "subscription/report, role change, moderation, audit, "
+        "last admin protection, search, private sharing/revocation, "
+        "logout/login, edit/delete, social undo, desktop/mobile."
+    )
 
 
 if __name__ == "__main__":

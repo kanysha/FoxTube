@@ -73,6 +73,8 @@ make up
 make check
 make test
 make test-browser
+make test-resilience
+make test-capacity
 ```
 
 Первая команда проверяет локальные TOML, ссылки и метаданные навыков, без сети и установки.
@@ -87,7 +89,9 @@ python3 scripts/check_agent_setup.py --tools --strict-tools
 make up собирает и запускает каркас с миграциями. make check запускает проверки
 кода в development-образе, make test — отдельное интеграционное окружение,
 make test-browser — загрузку и воспроизведение H.264 в изолированном Chrome.
-Для них Python, uv и FFmpeg на хосте не нужны; достаточно Docker/Compose и bash.
+Для этих проверок приложения Python, uv и FFmpeg на хосте не нужны;
+достаточно Docker/Compose и bash. Для `make test-resilience` и `make test-capacity`
+дополнительно нужен Python 3 на хосте; сценарии и границы описаны в [testing.md](testing.md).
 Установка на Ubuntu и настройки — в [development.md](development.md).
 
 ## Обнаружение и совместимость

@@ -215,7 +215,7 @@ def channel(
         name="channel.html",
         context={
             "page_title": info.title,
-            "active_page": "channel",
+            "active_page": "channel" if info.can_manage else "",
             "query": "",
             "channel": info.model_dump(mode="json"),
             "videos": videos.model_dump(mode="json"),

@@ -8,7 +8,7 @@ with_demo=false
 if [[ $# -gt 0 ]]; then
     if [[ $# -eq 1 && $1 == --help ]]; then
         printf '%s\n' 'Usage: bash scripts/bootstrap.sh [--demo]' \
-            'On clean Ubuntu 24.04: sudo bash scripts/bootstrap.sh' \
+            'On clean Ubuntu 22.04/24.04: sudo bash scripts/bootstrap.sh' \
             'Existing configuration and volumes are preserved.'
         exit 0
     fi
@@ -19,6 +19,74 @@ if [[ $# -gt 0 ]]; then
         exit 2
     fi
 fi
+
+supported_ubuntu_codename() {
+    case "$1:$2:$3" in
+        ubuntu:22.04:jammy|ubuntu:24.04:noble)
+            printf '%s\n' "$3"
+            ;;
+        *)
+            printf '%s\n' 'Automatic Docker installation supports Ubuntu 22.04 (jammy) and 24.04 (noble).' >&2
+            return 1
+            ;;
+    esac
+}
+
+repository_file_matches() {
+    local candidate=$1 destination=$2
+    if [[ -e $destination || -L $destination ]]; then
+        if [[ ! -f $destination || -L $destination ]] || ! cmp -s -- "$candidate" "$destination"; then
+            printf 'Existing Docker repository file differs or is unsafe: %s. Review it before retrying.\n' "$destination" >&2
+            return 1
+        fi
+    fi
+}
+
+publish_repository_file() {
+    local candidate=$1 destination=$2
+    repository_file_matches "$candidate" "$destination"
+    if [[ ! -e $destination && ! -L $destination ]]; then
+        # A hard link publishes the complete file atomically without overwriting
+        # another installer's file. -T also rejects a concurrent directory.
+        ln -T -- "$candidate" "$destination"
+    fi
+}
+
+configure_docker_repository() (
+    # Keep cleanup traps local to this installation step, including curl failure.
+    local codename=$1 apt_directory=$2 key_temporary='' source_temporary='' architecture
+    local key_path="$apt_directory/keyrings/docker.asc"
+    local source_path="$apt_directory/sources.list.d/docker.sources"
+    trap 'rm -f -- "$key_temporary" "$source_temporary"' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    install -m 0755 -d "$apt_directory/keyrings" "$apt_directory/sources.list.d"
+    key_temporary=$(mktemp "$apt_directory/keyrings/.foxtube-docker-key.XXXXXX")
+    source_temporary=$(mktemp "$apt_directory/sources.list.d/.foxtube-docker-source.XXXXXX")
+    curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 \
+        https://download.docker.com/linux/ubuntu/gpg -o "$key_temporary"
+    if [[ ! -s $key_temporary ]] || \
+        ! grep -q '^-----BEGIN PGP PUBLIC KEY BLOCK-----$' "$key_temporary" || \
+        ! grep -q '^-----END PGP PUBLIC KEY BLOCK-----$' "$key_temporary"; then
+        printf '%s\n' 'The downloaded Docker signing key is incomplete; retry installation.' >&2
+        exit 1
+    fi
+    architecture=$(dpkg --print-architecture)
+    cat > "$source_temporary" <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $codename
+Components: stable
+Architectures: $architecture
+Signed-By: $key_path
+EOF
+    chmod 0644 "$key_temporary" "$source_temporary"
+    # Check both existing files before publishing either new file.
+    repository_file_matches "$key_temporary" "$key_path"
+    repository_file_matches "$source_temporary" "$source_path"
+    publish_repository_file "$key_temporary" "$key_path"
+    publish_repository_file "$source_temporary" "$source_path"
+)
 
 install_docker() {
     if [[ $(uname -s) != Linux || ! -r /etc/os-release ]]; then
@@ -32,10 +100,9 @@ install_docker() {
     # /etc/os-release belongs to the operating system, not the project configuration.
     # shellcheck source=/dev/null
     source /etc/os-release
-    if [[ ${ID:-} != ubuntu || ${VERSION_ID:-} != 24.04 ]]; then
-        printf '%s\n' 'Automatic Docker installation supports Ubuntu 24.04 LTS.' >&2
-        exit 1
-    fi
+    local codename
+    codename=$(supported_ubuntu_codename "${ID:-}" "${VERSION_ID:-}" \
+        "${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}")
 
     local package
     for package in docker.io docker-compose docker-compose-v2 docker-doc docker-buildx podman-docker containerd runc; do
@@ -47,27 +114,17 @@ install_docker() {
 
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
-    install -m 0755 -d /etc/apt/keyrings
-    if [[ ! -s /etc/apt/keyrings/docker.asc ]]; then
-        curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 \
-            https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-        chmod a+r /etc/apt/keyrings/docker.asc
-    fi
-    if [[ ! -e /etc/apt/sources.list.d/docker.sources ]]; then
-        cat > /etc/apt/sources.list.d/docker.sources <<EOF
-Types: deb
-URIs: https://download.docker.com/linux/ubuntu
-Suites: noble
-Components: stable
-Architectures: $(dpkg --print-architecture)
-Signed-By: /etc/apt/keyrings/docker.asc
-EOF
-    fi
+    configure_docker_repository "$codename" /etc/apt
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
         docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
 }
+
+# Regression tests source the helpers with stubbed tools and temporary apt paths.
+if [[ ${BASH_SOURCE[0]} != "$0" ]]; then
+    return
+fi
 
 if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
     install_docker

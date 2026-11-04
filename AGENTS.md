@@ -56,7 +56,7 @@
 
 ## Проверки и готовность
 
-- Каркас запускается командой `bash scripts/bootstrap.sh` (`make up`); на чистой Ubuntu 24.04 — `sudo bash scripts/bootstrap.sh`. Перед изменением сверяй фактические ограничения в docs/status.md.
+- Каркас запускается командой `bash scripts/bootstrap.sh` (`make up`); на чистой Ubuntu 22.04/24.04 — `sudo bash scripts/bootstrap.sh`. Перед изменением сверяй фактические ограничения в docs/status.md.
 - `make check` — Ruff, mypy, ShellCheck и unit-тесты в development-образе; `make test` — изолированный Compose с настоящими PostgreSQL/Nginx. Обвязка: `make agents-check`, `make doctor`.
 - Python-зависимости зафиксированы в uv.lock. При изменении pyproject.toml обновляй lock через Python 3.12/uv и проверяй сборку --frozen; инструменты разработки не включай в runtime-окружение.
 - Интеграционные проверки используют настоящий PostgreSQL; проверка медиа проходит через Nginx; видеотест запускает настоящий FFmpeg.

@@ -14,7 +14,9 @@ from app.videos.transcode import (
     InvalidVideo,
     TranscodeInterrupted,
     _inspect,
+    _probe,
     _run,
+    _verify_output,
     transcode,
 )
 
@@ -26,6 +28,7 @@ def _make_video(
     audio: bool = True,
     sar: str = "1/1",
     webm: bool = False,
+    duration: float = 0.7,
 ) -> None:
     arguments = [
         "/usr/bin/ffmpeg",
@@ -38,10 +41,10 @@ def _make_video(
         "-f",
         "lavfi",
         "-i",
-        f"testsrc2=size={size}:rate=24:duration=0.7",
+        f"testsrc2=size={size}:rate=24:duration={duration}",
     ]
     if audio:
-        arguments += ["-f", "lavfi", "-i", "sine=frequency=440:duration=0.7"]
+        arguments += ["-f", "lavfi", "-i", f"sine=frequency=440:duration={duration}"]
     arguments += [
         "-vf",
         f"setsar={sar}",
@@ -292,3 +295,47 @@ def test_attempt_does_not_overwrite_existing_artifact(tmp_path: Path) -> None:
     with pytest.raises(InvalidVideo):
         transcode(source, work, lambda: None)
     assert (work / "playback.mp4").read_bytes() == b"existing attempt"
+
+
+@pytest.mark.parametrize("mode", ["short_duration", "missing_bytes"])
+def test_real_truncated_output_is_rejected(tmp_path: Path, mode: str) -> None:
+    source = tmp_path / "source.mp4"
+    _make_video(source, audio=False, duration=5)
+    source_info = _inspect(_probe(source, lambda: None))
+    complete = tmp_path / "complete.mp4"
+    arguments = [
+        "/usr/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-i",
+        str(source),
+        "-map",
+        "0:v:0",
+        "-c",
+        "copy",
+        "-movflags",
+        "+faststart",
+    ]
+    subprocess.run(
+        [*arguments, str(complete)],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    )
+    # Establish that the full real MP4 meets the publication checks first.
+    _verify_output(complete, source_info, lambda: None)
+    truncated = tmp_path / "truncated.mp4"
+    if mode == "short_duration":
+        # A valid, independently playable MP4 can still be an incomplete result.
+        subprocess.run(
+            [*arguments, "-t", "0.7", str(truncated)],
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
+    else:
+        contents = complete.read_bytes()
+        truncated.write_bytes(contents[: len(contents) // 2])
+    with pytest.raises(InvalidVideo):
+        _verify_output(truncated, source_info, lambda: None)

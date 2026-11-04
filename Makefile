@@ -1,6 +1,6 @@
 PYTHON ?= python3
 
-.PHONY: help bootstrap up down logs ps check test test-browser agents-check doctor
+.PHONY: help bootstrap up down logs ps check test test-browser test-resilience test-capacity agents-check doctor
 
 help:
 	@echo 'bootstrap/up  Собрать, применить миграции и запустить проект'
@@ -9,6 +9,8 @@ help:
 	@echo 'check         Ruff, mypy, ShellCheck и unit-тесты в Docker'
 	@echo 'test          Интеграционные тесты в отдельном окружении'
 	@echo 'test-browser  Настоящий Chrome: загрузка, H.264, просмотр и перемотка'
+	@echo 'test-resilience  Аварии worker/БД, удаление при FFmpeg и рестарт стека'
+	@echo 'test-capacity    Загрузка 500 МиБ, память API и десять HTTP-зрителей'
 	@echo 'agents-check  Проверить инструкции, профили, навыки и ссылки'
 	@echo 'doctor        Проверить обвязку и показать доступность инструментов'
 
@@ -33,6 +35,12 @@ test:
 
 test-browser:
 	bash scripts/test-browser.sh
+
+test-resilience:
+	bash scripts/test-resilience.sh
+
+test-capacity:
+	bash scripts/test-resilience.sh --capacity
 
 agents-check:
 	$(PYTHON) scripts/check_agent_setup.py
