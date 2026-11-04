@@ -394,10 +394,10 @@ def seed(manifest: Manifest) -> None:
     finally:
         for browser in browsers:
             try:
-                browser.call("POST", "/api/v1/auth/logout", expected=(200,))
+                browser.call("POST", "/api/v1/auth/logout", {}, expected=(200,))
             except (DemoError, URLError, OSError):
                 # Cleanup must not replace the useful failure from the seed.
-                print("Demo session cleanup could not reach the API.")
+                print("Demo session cleanup did not complete.")
 
 
 def main() -> int:

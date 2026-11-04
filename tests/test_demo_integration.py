@@ -90,6 +90,17 @@ def test_demo_uses_actual_pipeline_and_repeat_preserves_data(tmp_path: Path) -> 
                     == original_users,
                     "Demo changed unrelated accounts",
                 )
+                require(
+                    connection.scalar(
+                        text(
+                            "SELECT count(*) FROM sessions WHERE user_id = ANY(:ids) "
+                            "AND revoked_at IS NULL AND expires_at > now()"
+                        ),
+                        {"ids": ids},
+                    )
+                    == 0,
+                    "Demo left authenticated sessions active after completion",
+                )
             require(
                 current == {"users": 6, "videos": 12, "comments": 6, "playlists": 6},
                 "Demo did not persist its actual records",
