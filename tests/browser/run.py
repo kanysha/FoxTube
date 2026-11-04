@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from lifecycle import check_lifecycle
+from player import check_player
 from playwright.sync_api import Page, expect, sync_playwright
 from privacy import check_privacy
 from staff import check_moderation
@@ -207,6 +208,7 @@ def main() -> None:
                     ).click()
                 response = created.value
                 require(response.status == 201, "UI metadata creation failed")
+                expect(page.locator("[data-upload-loader]")).to_be_visible()
                 created_video = response.json()
                 video_id = created_video["id"]
                 watch_path = f"/watch/{video_id}"
@@ -220,6 +222,7 @@ def main() -> None:
                     timeout=120000,
                 )
                 if urlsplit(page.url).path != watch_path:
+                    expect(page.locator("[data-upload-loader]")).to_be_hidden()
                     page.locator(f'a[href="{watch_path}"]').first.click()
                 page.wait_for_url(f"{base_url}{watch_path}")
                 player = page.locator("video")
@@ -266,6 +269,9 @@ def main() -> None:
                     "video => video.currentTime"
                 )
                 player.evaluate("video => video.pause()")
+                report["styled_player"] = check_player(
+                    browser, page, base_url, watch_path, artifacts, errors
+                )
                 report["social"] = check_social(page, base_url, watch_path)
                 player = page.locator("video")
                 assert_no_overflow(page)

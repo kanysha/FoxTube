@@ -1,0 +1,20 @@
+<div class="video-player-wrap fox-player" data-fox-player role="group" aria-label="Видеоплеер: {{ video.title }}" tabindex="0">
+  <video class="video-player" controls playsinline preload="metadata"{% if video.poster_url %} poster="{{ video.poster_url }}"{% endif %} aria-label="{{ video.title }}"><source src="{{ video.playback_url }}" type="video/mp4">Ваш браузер не поддерживает воспроизведение видео.</video>
+  <button class="fox-player-center" type="button" data-fox-center aria-label="Воспроизвести видео" hidden><img src="/static/logo.svg" width="111" height="85" alt=""></button>
+  <div class="fox-player-loading" data-fox-loading role="status" hidden><span class="fox-loader fox-loader-buffer" aria-hidden="true"></span><span class="visually-hidden">Загрузка видео…</span></div>
+  <p class="fox-player-message" data-fox-message data-playback-error role="status" hidden></p>
+  <div class="fox-player-controls" data-fox-controls hidden>
+    <div class="fox-player-timeline">
+      <div class="fox-player-track" aria-hidden="true"><span class="fox-player-buffer" data-fox-buffer></span><span class="fox-player-progress" data-fox-progress></span></div>
+      <input class="fox-player-seek" data-fox-seek type="range" min="0" max="0" value="0" step="0.1" aria-label="Позиция воспроизведения" aria-valuetext="0:00 из 0:00" disabled>
+    </div>
+    <div class="fox-player-toolbar">
+      <button class="fox-player-button" type="button" data-fox-toggle aria-label="Воспроизвести видео" title="Воспроизвести (K)"><svg viewBox="0 0 24 24" aria-hidden="true"><path data-fox-play-icon d="m8 5 11 7-11 7z"/><path data-fox-pause-icon d="M7 5h4v14H7zM15 5h4v14h-4z" hidden/></svg></button>
+      <button class="fox-player-button" type="button" data-fox-mute aria-label="Выключить звук" aria-pressed="false" title="Выключить звук (M)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z"/><path class="fox-player-sound-lines" data-fox-sound-icon d="M16 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="fox-player-sound-lines" data-fox-muted-icon d="m16 9 6 6m0-6-6 6" hidden/></svg></button>
+      <input class="fox-player-volume" data-fox-volume type="range" min="0" max="1" value="1" step="0.05" aria-label="Громкость" aria-valuetext="100%">
+      <span class="fox-player-time"><span data-fox-current>0:00</span><span aria-hidden="true"> / </span><span class="visually-hidden"> из </span><span data-fox-duration>0:00</span></span>
+      <span class="fox-player-wordmark" aria-hidden="true">FoxTube</span>
+      <button class="fox-player-button fox-player-fullscreen" type="button" data-fox-fullscreen aria-label="На весь экран" title="На весь экран (F)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fox-player-sound-lines" d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/></svg></button>
+    </div>
+  </div>
+</div>

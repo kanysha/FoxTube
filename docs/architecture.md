@@ -8,7 +8,10 @@
 ## Компоненты и зависимости
 
 - Python 3.12, FastAPI, Pydantic 2, Uvicorn; PostgreSQL 17, SQLAlchemy 2, psycopg 3, Alembic.
-- Jinja2, CSS, обычный JavaScript; HTML5 video. Интерфейс на русском, адаптивная компоновка YouTube.
+- Jinja2, CSS, обычный JavaScript; HTML5 video со стилизованными controls и нативным
+  fallback. Интерфейс на русском, адаптивная компоновка YouTube. Предпросмотр
+  миниатюр проигрывает первые 20% без звука через прежний защищённый MP4 endpoint;
+  отдельного кодирования/файла/сервиса нет. Подробности — [PLAYER-01](tasks/styled-player.md).
 - Четыре постоянных сервиса: Nginx, API, PostgreSQL, Python-worker. API и worker — один образ, разные команды.
 - Локальный постоянный медиатом: API/worker имеют необходимые права записи, Nginx — только чтение. PostgreSQL хранит метаданные и очередь.
 - Очередь не использует Redis/Celery/отдельный диспетчер. Выход не использует HLS и hls.js. Таблица сегментов/video_assets не нужна.

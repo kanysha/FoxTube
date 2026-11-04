@@ -32,9 +32,10 @@
       const button = form.querySelector('button[type="submit"]');
       if (button.disabled) return;
       button.disabled = true;
+      button.setAttribute("aria-busy", "true");
       try { await action(new FormData(form)); }
       catch (error) { message(form, error.message || "Ошибка соединения. Повторите позже.", true); }
-      finally { button.disabled = false; }
+      finally { button.disabled = false; button.removeAttribute("aria-busy"); }
     });
   };
 

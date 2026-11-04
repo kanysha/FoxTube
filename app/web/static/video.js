@@ -67,6 +67,11 @@
     const titleInput = uploadForm.elements.namedItem("title");
     const progressCard = document.querySelector("[data-upload-progress]");
     const statusLabel = document.querySelector("[data-upload-status]");
+    const loader = document.querySelector("[data-upload-loader]");
+    const showLoader = (variant) => {
+      loader.hidden = !variant;
+      loader.className = `fox-loader fox-loader-${variant || "orbit"} upload-loader`;
+    };
     const sendProgress = document.querySelector("#send-progress");
     const sendPercent = document.querySelector("[data-send-percent]");
     const note = document.querySelector("[data-processing-note]");
@@ -89,6 +94,8 @@
       if (sending) { event.preventDefault(); event.returnValue = ""; }
     });
     const finish = (video) => {
+      showLoader(null);
+      uploadForm.setAttribute("aria-busy", "false");
       sending = false;
       cancelButton.hidden = true;
       statusLabel.textContent = states[video.status] || "Подготовка видео";
@@ -121,6 +128,8 @@
       } catch (error) {
         if ([401, 403, 404].includes(error.status)) {
           busy = false;
+          showLoader(null);
+          uploadForm.setAttribute("aria-busy", "false");
           cancelButton.hidden = true;
           showError(uploadForm, error);
           return;
@@ -175,6 +184,7 @@
       busy = true;
       setBusy(uploadForm, true);
       progressCard.hidden = false;
+      showLoader("orbit");
       cancelButton.hidden = false;
       cancelButton.disabled = true;
       watchLink.hidden = true;
@@ -204,6 +214,7 @@
         sendProgress.value = 100;
         sendPercent.textContent = "100%";
         statusLabel.textContent = "В очереди";
+        showLoader("pulse");
         await monitor(draftId, currentGeneration);
       } catch (error) {
         sending = false;
@@ -213,6 +224,7 @@
           try {
             const accepted = await api(endpoint(draftId));
             if (accepted.status !== "UPLOADING") {
+              showLoader("pulse");
               await monitor(draftId, currentGeneration);
               return;
             }
@@ -222,6 +234,7 @@
         setBusy(uploadForm, false);
         cancelButton.hidden = false;
         cancelButton.disabled = false;
+        showLoader(null);
         statusLabel.textContent = "Отправка не завершена";
         note.textContent = "Повторите отправку целиком или отмените загрузку.";
         showError(uploadForm, error);
@@ -241,6 +254,7 @@
         busy = false;
         setBusy(uploadForm, false);
         cancelButton.hidden = true;
+        showLoader(null);
         statusLabel.textContent = "Загрузка отменена";
         note.textContent = "Можно выбрать другой файл и начать заново.";
         sendProgress.value = 0;
@@ -248,6 +262,8 @@
       } catch (error) {
         showError(uploadForm, error);
         cancelButton.disabled = false;
+        showLoader(null);
+        uploadForm.setAttribute("aria-busy", "false");
         note.textContent = "Не удалось отменить загрузку. Проверьте соединение и повторите отмену.";
       }
     });
@@ -263,6 +279,7 @@
       } catch (error) {
         if ([401, 403, 404].includes(error.status)) {
           watch.querySelector("[data-watch-note]").textContent = error.message;
+          watch.querySelector(".fox-loader")?.remove();
           return;
         }
       }
@@ -270,16 +287,6 @@
     };
     window.setTimeout(refreshStatus, 2000);
   }
-  const videoElement = document.querySelector(".video-player");
-  if (videoElement) {
-    const displayPlaybackError = () => {
-      const region = document.querySelector("[data-playback-error]");
-      if (region) region.hidden = false;
-    };
-    videoElement.addEventListener("error", displayPlaybackError);
-    videoElement.querySelector("source")?.addEventListener("error", displayPlaybackError);
-  }
-
   const ownerPanel = document.querySelector("[data-video-owner]");
   if (ownerPanel) {
     const id = ownerPanel.dataset.videoOwner;
@@ -331,9 +338,11 @@
           revoke.setAttribute("aria-label", `Отозвать доступ: ${person.email}`);
           revoke.addEventListener("click", async () => {
             revoke.disabled = true;
+            revoke.setAttribute("aria-busy", "true");
             clearError(grantForm);
             try { await api(`${endpoint(id)}/grants/${encodeURIComponent(person.user_id)}`, "DELETE"); await loadGrants(); }
-            catch (error) { showError(grantForm, error); revoke.disabled = false; }
+            catch (error) { showError(grantForm, error); }
+            finally { revoke.disabled = false; revoke.removeAttribute("aria-busy"); }
           });
           row.append(label, revoke);
           list.append(row);
@@ -371,6 +380,16 @@
           const video = await api(endpoint(card.dataset.studioVideo));
           card.dataset.videoStatus = video.status;
           card.querySelector("[data-status-label]").textContent = states[video.status] || video.status;
+          if (["READY", "FAILED"].includes(video.status)) {
+            const pendingLoader = card.querySelector(".thumbnail-loader");
+            if (pendingLoader) {
+              const placeholder = document.createElement("span");
+              placeholder.className = "thumbnail-placeholder";
+              placeholder.setAttribute("aria-hidden", "true");
+              placeholder.textContent = video.status === "FAILED" ? "!" : "▶";
+              pendingLoader.replaceWith(placeholder);
+            }
+          }
           if (video.status === "READY" && video.poster_url) {
             const thumbnail = card.querySelector(".video-thumbnail");
             const image = document.createElement("img");
@@ -379,9 +398,17 @@
             image.width = 640;
             image.height = 360;
             thumbnail.replaceChildren(image);
+            if (video.duration) {
+              const duration = document.createElement("span");
+              duration.className = "video-duration";
+              const seconds = Math.floor(video.duration);
+              duration.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+              thumbnail.append(duration);
+            }
+            if (video.playback_url) thumbnail.dataset.previewSrc = video.playback_url;
           }
         } catch (error) {
-          if ([401, 403, 404].includes(error.status)) { card.dataset.videoStatus = "UNAVAILABLE"; card.querySelector("[data-status-label]").textContent = "Недоступно"; }
+          if ([401, 403, 404].includes(error.status)) { card.dataset.videoStatus = "UNAVAILABLE"; card.querySelector(".thumbnail-loader")?.remove(); card.querySelector("[data-status-label]").textContent = "Недоступно"; }
         }
         if (["QUEUED", "PROCESSING"].includes(card.dataset.videoStatus)) pending = true;
       }

@@ -11,12 +11,18 @@
     <link rel="stylesheet" href="/static/app.css">
     <link rel="stylesheet" href="/static/video.css">
     <link rel="stylesheet" href="/static/social.css">
+    <link rel="stylesheet" href="/static/loading.css">
+    <link rel="stylesheet" href="/static/player.css">
     <script src="/static/app.js" defer></script>
+    <script src="/static/loading.js" defer></script>
     <script src="/static/auth.js" defer></script>
     <script src="/static/video.js" defer></script>
     <script src="/static/social.js" defer></script>
+    <script src="/static/player.js" defer></script>
+    <script src="/static/previews.js" defer></script>
   </head>
   <body class="app-shell">
+    <div class="navigation-loading" data-navigation-loading role="status" hidden><span class="fox-loader fox-loader-orbit" aria-hidden="true"></span><span>Открываем страницу…</span></div>
     <a class="skip-link" href="#main-content">Перейти к содержимому</a>
 
     <header class="site-header">

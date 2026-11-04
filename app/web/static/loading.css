@@ -1,0 +1,16 @@
+.fox-loader { display: inline-block; flex: none; width: 48px; height: 48px; background: center / contain no-repeat; vertical-align: middle; }
+.fox-loader-orbit { background-image: url('/static/loading/foxtube-orbit.svg'); }
+.fox-loader-buffer { background-image: url('/static/loading/foxtube-buffer.svg'); }
+.fox-loader-pulse { background-image: url('/static/loading/foxtube-pulse.svg'); }
+.fox-loader[hidden], .navigation-loading[hidden] { display: none; }
+.navigation-loading { position: fixed; z-index: 100; top: 78px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 6px 16px 6px 4px; border: 1px solid #e6e7eb; border-radius: 12px; background: #fff; color: #4a4d54; box-shadow: 0 6px 24px #0002; font-size: 13px; pointer-events: none; }
+.processing-loader { width: 100px; height: 100px; }
+.thumbnail-loader { width: 80px; height: 80px; }
+.upload-loader { display: block; width: 76px; height: 76px; margin: -8px 0 12px; }
+form[aria-busy="true"] button[type="submit"]::after, button[aria-busy="true"]::after { content: ''; display: inline-block; flex: none; width: 28px; height: 28px; background: url('/static/loading/foxtube-pulse.svg') center / contain no-repeat; vertical-align: middle; }
+.logout-form[aria-busy="true"] .logout-button > svg { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .fox-loader-orbit { background-image: url('/static/loading/foxtube-orbit.png'); }
+  .fox-loader-buffer { background-image: url('/static/loading/foxtube-buffer.png'); }
+  .fox-loader-pulse, form[aria-busy="true"] button[type="submit"]::after, button[aria-busy="true"]::after { background-image: url('/static/loading/foxtube-pulse.png'); }
+}

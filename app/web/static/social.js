@@ -53,9 +53,10 @@
   };
   const withButton = async (button, root, action) => {
     button.disabled = true;
+    button.setAttribute("aria-busy", "true");
     clearError(root);
     try { await action(); } catch (error) { showError(root, error); }
-    finally { button.disabled = false; }
+    finally { button.disabled = false; button.removeAttribute("aria-busy"); }
   };
 
   for (const mount of document.querySelectorAll("[data-channel-subscription]")) {

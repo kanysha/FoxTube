@@ -42,6 +42,7 @@ COPY tests/browser/staff.py /browser/staff.py
 COPY tests/browser/privacy.py /browser/privacy.py
 COPY tests/browser/swagger.py /browser/swagger.py
 COPY tests/browser/lifecycle.py /browser/lifecycle.py
+COPY tests/browser/player.py /browser/player.py
 WORKDIR /browser
 USER 1000:1000
 CMD ["python", "/browser/run.py"]
