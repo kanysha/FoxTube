@@ -1,8 +1,10 @@
+{% macro playlist_icon() %}<svg class="playlist-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h8m4-1 6 4-6 4z"/></svg>{% endmacro %}
+{% macro like_icon() %}<svg class="social-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>{% endmacro %}
 {% macro playlist_cards(items) %}
 <section class="playlist-grid" aria-label="Плейлисты">
   {% for item in items %}
   <article class="playlist-card">
-    <a class="playlist-cover" href="/playlists/{{ item.id }}" aria-label="Открыть плейлист: {{ item.title }}"><span aria-hidden="true">☷</span><span>{{ item.videos_count }} видео</span></a>
+    <a class="playlist-cover" href="/playlists/{{ item.id }}" aria-label="Открыть плейлист: {{ item.title }}">{{ playlist_icon() }}<span>{{ item.videos_count }} видео</span></a>
     <h2><a href="/playlists/{{ item.id }}">{{ item.title }}</a></h2>
     <p class="form-hint">{% if item.visibility == 'private' %}Приватный{% else %}Публичный{% endif %} · {{ item.channel_name }}</p>
   </article>
@@ -13,9 +15,9 @@
 {% if video is defined and video.playback_url %}
 <section class="video-social" data-social-video="{{ video.id }}" aria-label="Взаимодействия с видео">
   <div class="social-actions">
-    {% if viewer %}<button class="secondary-button like-button" type="button" data-like aria-pressed="false" disabled>♡ Нравится · <span data-likes-count>…</span></button>{% else %}<a class="secondary-button" href="/login">♡ Нравится · <span data-likes-count>…</span></a>{% endif %}
+    {% if viewer %}<button class="secondary-button like-button" type="button" data-like aria-pressed="false" disabled>{{ like_icon() }}Нравится · <span data-likes-count>…</span></button>{% else %}<a class="secondary-button" href="/login">{{ like_icon() }}Нравится · <span data-likes-count>…</span></a>{% endif %}
     <div data-channel-subscription="{{ video.channel_id }}"></div>
-    {% if viewer %}<button class="secondary-button" type="button" data-save-toggle aria-expanded="false" aria-controls="save-playlist-panel">☷ Сохранить</button>{% endif %}
+    {% if viewer %}<button class="secondary-button" type="button" data-save-toggle aria-expanded="false" aria-controls="save-playlist-panel">{{ playlist_icon() }}Сохранить</button>{% endif %}
   </div>
   <p class="form-message" data-social-error role="status" aria-live="polite" hidden></p>
   {% if viewer %}

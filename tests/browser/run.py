@@ -116,6 +116,13 @@ def check_social(page: Page, base_url: str, watch_path: str) -> dict[str, Any]:
     expect(page.locator(f'a[href="{watch_path}"]').first).to_be_visible()
     assert_no_overflow(page)
     page.goto(base_url + watch_path)
+    expect(page.locator("[data-like]")).to_have_attribute("aria-pressed", "true")
+    expect(page.locator("[data-likes-count]")).to_have_text("1")
+    expect(page.locator("[data-comments-list]")).to_contain_text(comment)
+    expect(page.locator("[data-comments-more]")).to_be_hidden()
+    expect(page.locator("[data-grants-empty]")).to_have_text(
+        "Разрешения пока не выданы."
+    )
     return {
         "like": "persisted",
         "comment": "persisted and escaped",
