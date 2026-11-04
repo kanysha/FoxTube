@@ -15,6 +15,8 @@ from app.core.db import make_engine
 from app.core.request_limits import AuthBodyLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.health import router as health_router
+from app.moderation.routes import router as moderation_router
+from app.moderation.web import router as moderation_web_router
 from app.social.routes import router as social_router
 from app.social.web import router as social_web_router
 from app.videos.routes import media_router
@@ -74,6 +76,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(video_router)
     application.include_router(social_router)
     application.include_router(media_router)
+    application.include_router(moderation_router)
+    application.include_router(moderation_web_router)
     application.include_router(web_router)
     application.include_router(social_web_router)
     application.mount(

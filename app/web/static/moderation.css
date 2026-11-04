@@ -1,0 +1,23 @@
+.moderation-card { max-width: 1000px; margin: 18px 0; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.moderation-card h2, .moderation-card h3 { margin: 0 0 12px; }
+.moderation-card h3 { margin-top: 20px; font-size: 16px; }
+.moderation-tabs, .moderation-pagination { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 20px 0; }
+.moderation-tabs a { padding: 8px 12px; border-radius: 8px; }
+.moderation-tabs a[aria-current="page"] { background: var(--accent-soft); font-weight: 700; }
+.moderation-note { max-width: 950px; color: var(--muted); line-height: 1.6; }
+.moderation-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.moderation-id { color: var(--muted); overflow-wrap: anywhere; font-size: 13px; }
+.moderation-state { display: flex; gap: 24px; flex-wrap: wrap; }
+.moderation-state dt { font-size: 12px; color: var(--muted); }
+.moderation-state dd { margin: 4px 0; }
+.moderation-form { display: grid; gap: 12px; max-width: 760px; margin: 20px 0 0; }
+.moderation-form[hidden] { display: none; }
+.moderation-form label { display: grid; gap: 7px; font-size: 14px; font-weight: 600; }
+.moderation-form input, .moderation-form textarea, .moderation-form select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: inherit; font: inherit; }
+.moderation-form textarea { resize: vertical; min-height: 76px; }
+.moderation-form button { justify-self: start; }
+.moderation-message { margin: 0; line-height: 1.5; }
+.moderation-message.is-error { color: #b42318; }
+.video-report { margin-top: 24px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; }
+.video-report summary { cursor: pointer; font-weight: 600; }
+@media (max-width: 600px) { .moderation-card { padding: 16px; } .moderation-state { gap: 14px; } }

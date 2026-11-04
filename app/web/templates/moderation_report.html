@@ -1,0 +1,14 @@
+{% if video.playback_url %}
+<link rel="stylesheet" href="/static/moderation.css">
+<details class="video-report">
+  <summary>Пожаловаться на видео</summary>
+  {% if viewer %}
+  <form class="moderation-form" data-video-report="{{ video.id }}">
+    <label>Причина жалобы<textarea name="reason" required maxlength="1000" rows="3" placeholder="Опишите нарушение"></textarea></label>
+    <button class="secondary-button" type="submit">Отправить жалобу</button>
+    <p class="moderation-message" data-moderation-message role="status" aria-live="polite" hidden></p>
+  </form>
+  {% else %}<p><a href="/login">Войдите</a>, чтобы отправить жалобу.</p>{% endif %}
+</details>
+<script src="/static/moderation.js" defer></script>
+{% endif %}

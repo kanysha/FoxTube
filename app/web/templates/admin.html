@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="/static/moderation.css">
+<section class="page-heading"><div><p class="eyebrow">Администратор</p><h1>Управление платформой</h1></div><a class="secondary-button" href="/moderation">Жалобы</a></section>
+<section class="moderation-card" aria-labelledby="roles-title">
+  <h2 id="roles-title">Роли пользователей</h2>
+  <p>Найдите существующий аккаунт по точному email или ID. Последнего администратора понизить нельзя.</p>
+  <form class="moderation-form" data-role-lookup>
+    <label>Поиск по<select name="kind"><option value="email">Email</option><option value="user_id">ID пользователя</option></select></label>
+    <label>Точное значение<input name="target" type="text" maxlength="254" required autocomplete="off"></label>
+    <button class="secondary-button" type="submit">Найти аккаунт</button>
+    <p class="moderation-message" data-moderation-message role="status" aria-live="polite" hidden></p>
+  </form>
+  <form class="moderation-form" data-role-change hidden>
+    <p data-role-target></p>
+    <input name="user_id" type="hidden">
+    <label>Новая роль<select name="role"><option value="user">Пользователь</option><option value="moderator">Модератор</option><option value="admin">Администратор</option></select></label>
+    <label>Причина изменения<textarea name="reason" required maxlength="1000" rows="2"></textarea></label>
+    <button class="primary-button" type="submit">Изменить роль</button>
+    <p class="moderation-message" data-moderation-message role="status" aria-live="polite" hidden></p>
+  </form>
+</section>
+<section aria-labelledby="audit-title">
+  <h2 id="audit-title">Журнал действий</h2>
+  <p class="moderation-note">Жалобы, решения, скрытие, восстановление и смена ролей сохраняются вместе с действием. В журнале нет паролей, токенов и путей к файлам.</p>
+  {% for event in audit['items'] %}
+  <article class="moderation-card audit-event">
+    <h3>{{ {'report.created': 'Создана жалоба', 'report.resolved': 'Закрыта жалоба', 'video.hidden': 'Видео скрыто', 'video.restored': 'Видео восстановлено', 'role.changed': 'Роль изменена', 'role.bootstrap': 'Первый администратор назначен'}.get(event.action, event.action) }}</h3>
+    <p class="moderation-id">{{ event.created_at[:19] }} · Автор действия: {{ event.actor_id or 'Первичная настройка' }}</p>
+    {% if event.target_user_id %}<p class="moderation-id">Пользователь: {{ event.target_user_id }}</p>{% endif %}
+    {% if event.video_id %}<p class="moderation-id">Видео: {{ event.video_id }}</p>{% endif %}
+    {% if event.report_id %}<p class="moderation-id">Жалоба: {{ event.report_id }}</p>{% endif %}
+    {% if event.previous_value or event.new_value %}<p>{{ event.previous_value or '—' }} → {{ event.new_value or '—' }}</p>{% endif %}
+    <p class="moderation-text">{{ event.reason }}</p>
+  </article>
+  {% else %}<p>Журнал пуст.</p>{% endfor %}
+  <nav class="moderation-pagination" aria-label="Страницы журнала">
+    {% if audit.page > 1 %}<a class="secondary-button" href="/admin?page={{ audit.page - 1 }}">Назад</a>{% endif %}
+    <span>Страница {{ audit.page }} · Всего событий: {{ audit.total }}</span>
+    {% if audit.page * audit.page_size < audit.total %}<a class="secondary-button" href="/admin?page={{ audit.page + 1 }}">Далее</a>{% endif %}
+  </nav>
+</section>
+<script src="/static/moderation.js" defer></script>
+{% endblock %}

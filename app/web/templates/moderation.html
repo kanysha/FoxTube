@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="/static/moderation.css">
+<section class="page-heading">
+  <div><p class="eyebrow">Проверка жалоб</p><h1>Модерация</h1></div>
+  {% if viewer.role == 'admin' %}<a class="secondary-button" href="/admin">Роли и журнал</a>{% endif %}
+</section>
+<nav class="moderation-tabs" aria-label="Статус жалоб">
+  <a href="/moderation"{% if not closed %} aria-current="page"{% endif %}>Открытые</a>
+  <a href="/moderation?closed=true"{% if closed %} aria-current="page"{% endif %}>Закрытые</a>
+  <span>Всего: {{ reports.total }}</span>
+</nav>
+<p class="moderation-note">Скрытие прекращает доступ к видео. Восстановление сохраняет приватность и состояние обработки. Роль модератора не открывает приватное видео.</p>
+{% for report in reports['items'] %}
+<article class="moderation-card" data-report-card data-report-id="{{ report.id }}" data-video-id="{{ report.video.id }}">
+  <p class="eyebrow">Жалоба от {{ report.created_at[:10] }}</p>
+  <h2>{% if report.video.watch_url %}<a href="{{ report.video.watch_url }}">{{ report.video.title }}</a>{% else %}{{ report.video.title }}{% endif %}</h2>
+  <p class="moderation-id">Видео: {{ report.video.id }}</p>
+  <dl class="moderation-state">
+    <div><dt>Доступ</dt><dd>{{ 'Приватное' if report.video.visibility == 'private' else 'Публичное' }}</dd></div>
+    <div><dt>Модерация</dt><dd>{{ 'Скрыто' if report.video.moderation_status == 'hidden' else 'Не скрыто' }}</dd></div>
+    <div><dt>Обработка</dt><dd>{{ report.video.status }}</dd></div>
+    {% if report.video.deleted %}<div><dt>Удаление</dt><dd>Удалено автором</dd></div>{% endif %}
+  </dl>
+  <h3>Причина жалобы</h3><p class="moderation-text">{{ report.reason }}</p>
+  {% if not report.video.watch_url %}<p class="moderation-note">Просмотр и название недоступны. Служебная карточка не даёт доступа к файлам.</p>{% endif %}
+  {% if not report.video.deleted %}
+  <form class="moderation-form" data-video-moderation>
+    <label>Действие
+      <select name="status" required>
+        <option value="hidden"{% if report.video.moderation_status == 'visible' %} selected{% endif %}>Скрыть видео</option>
+        <option value="visible"{% if report.video.moderation_status == 'hidden' %} selected{% endif %}>Восстановить видео</option>
+      </select>
+    </label>
+    <label>Причина действия<textarea name="reason" required maxlength="1000" rows="2"></textarea></label>
+    <button class="secondary-button" type="submit">Применить к видео</button>
+    <p class="moderation-message" data-moderation-message role="status" aria-live="polite" hidden></p>
+  </form>
+  {% endif %}
+  {% if report.status == 'open' %}
+  <form class="moderation-form" data-report-resolution>
+    <label>Решение по жалобе<textarea name="resolution" required maxlength="1000" rows="2" placeholder="Объясните результат проверки" ></textarea></label>
+    <button class="primary-button" type="submit">Закрыть жалобу</button>
+    <p class="moderation-message" data-moderation-message role="status" aria-live="polite" hidden></p>
+  </form>
+  {% else %}
+  <h3>Решение от {{ report.resolved_at[:10] }}</h3><p class="moderation-text">{{ report.resolution }}</p>
+  {% endif %}
+</article>
+{% else %}<div class="moderation-card"><h2>Жалоб пока нет</h2><p>Здесь появятся {{ 'закрытые' if closed else 'открытые' }} жалобы пользователей.</p></div>{% endfor %}
+<nav class="moderation-pagination" aria-label="Страницы жалоб">
+  {% if reports.page > 1 %}<a class="secondary-button" href="/moderation?closed={{ 'true' if closed else 'false' }}&amp;page={{ reports.page - 1 }}">Назад</a>{% endif %}
+  <span>Страница {{ reports.page }}</span>
+  {% if reports.page * reports.page_size < reports.total %}<a class="secondary-button" href="/moderation?closed={{ 'true' if closed else 'false' }}&amp;page={{ reports.page + 1 }}">Далее</a>{% endif %}
+</nav>
+<script src="/static/moderation.js" defer></script>
+{% endblock %}
