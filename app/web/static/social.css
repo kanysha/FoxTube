@@ -1,0 +1,46 @@
+.video-social { margin-top: 22px; }
+.social-actions, .subscription-control { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.social-actions { margin-bottom: 16px; }
+.social-actions .secondary-button, .subscription-control .primary-button { min-height: 40px; border-radius: 24px; }
+.like-button[aria-pressed="true"] { background: var(--accent-soft); color: #b33525; border-color: #e9a595; }
+.subscription-control .form-hint { white-space: nowrap; }
+.save-playlist-form { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 18px; margin: 16px 0; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.save-playlist-form[hidden] { display: none; }
+.save-playlist-form label { font-size: 13px; font-weight: 600; }
+.save-playlist-form select { max-width: 100%; min-height: 40px; padding: 8px; border: 1px solid #d8dae0; border-radius: 8px; background: #fff; }
+.video-social .text-link, .content-heading .text-link { margin-top: 0; }
+.comments-section { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 24px; }
+.comments-section h2 { font-size: 19px; margin: 0 0 20px; }
+.comment-form { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; margin-bottom: 22px; }
+.comment-form textarea { width: 100%; padding: 14px; border: 1px solid #d8dae0; border-radius: 10px; font: inherit; font-size: 14px; resize: vertical; }
+.comment-form textarea:focus-visible, .save-playlist-form select:focus-visible { outline: 2px solid #e99c56; outline-offset: 2px; }
+.comments-list { display: grid; gap: 20px; margin: 20px 0; }
+.comment { min-width: 0; padding: 0 0 18px; border-bottom: 1px solid var(--line); }
+.comment-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; font-size: 13px; }
+.comment-author { font-weight: 650; overflow-wrap: anywhere; }
+.comment-heading time { font-size: 12px; color: var(--muted); }
+.comment-body, .playlist-description { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.65; }
+.comment-delete { padding: 5px 0; border: 0; background: transparent; color: var(--muted); font-size: 12px; }
+.comment-delete:hover { color: #a33121; }
+.content-heading { margin-bottom: 28px; }
+.content-heading > p { color: var(--muted); line-height: 1.6; }
+.content-heading h1 { overflow-wrap: anywhere; }
+.playlist-create-panel { margin: 0 0 30px; }
+.playlist-create-panel > summary { width: fit-content; cursor: pointer; }
+.playlist-form { max-width: 640px; margin: 20px 0; padding: 22px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.playlist-grid, .playlist-edit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px 22px; }
+.playlist-card { min-width: 0; }
+.playlist-card h2 { margin: 14px 0 8px; font-size: 17px; overflow-wrap: anywhere; }
+.playlist-cover { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 28px; min-height: 145px; border-radius: 13px; background: #292b30; color: #fff; font-size: 14px; }
+.playlist-cover > span:first-child { font-size: 48px; }
+.playlist-edit-item .video-grid { display: block; margin-bottom: 12px; }
+.playlist-edit-item .form-message { margin-top: 10px; }
+.subscription-channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; padding: 0 0 28px; }
+.subscription-channels article { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.subscription-channels .text-link { margin: 0 0 12px; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .playlist-grid, .playlist-edit-grid { grid-template-columns: 1fr; }
+  .playlist-form { padding: 16px; }
+  .social-actions { align-items: flex-start; }
+  .social-actions [data-channel-subscription] { width: 100%; }
+}

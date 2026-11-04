@@ -6,6 +6,7 @@ from app.auth import models as auth_models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base, make_engine
 from app.core.models import ServiceHeartbeat  # noqa: F401
+from app.social import models as social_models  # noqa: F401
 from app.videos import models as video_models  # noqa: F401
 
 config = context.config

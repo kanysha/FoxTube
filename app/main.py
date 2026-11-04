@@ -15,6 +15,8 @@ from app.core.db import make_engine
 from app.core.request_limits import AuthBodyLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.health import router as health_router
+from app.social.routes import router as social_router
+from app.social.web import router as social_web_router
 from app.videos.routes import media_router
 from app.videos.routes import router as video_router
 from app.web.routes import WEB_ROOT
@@ -70,8 +72,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(auth_router)
     application.include_router(channel_router)
     application.include_router(video_router)
+    application.include_router(social_router)
     application.include_router(media_router)
     application.include_router(web_router)
+    application.include_router(social_web_router)
     application.mount(
         "/static", StaticFiles(directory=str(WEB_ROOT / "static")), name="static"
     )

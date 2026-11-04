@@ -1,0 +1,42 @@
+{% macro playlist_cards(items) %}
+<section class="playlist-grid" aria-label="Плейлисты">
+  {% for item in items %}
+  <article class="playlist-card">
+    <a class="playlist-cover" href="/playlists/{{ item.id }}" aria-label="Открыть плейлист: {{ item.title }}"><span aria-hidden="true">☷</span><span>{{ item.videos_count }} видео</span></a>
+    <h2><a href="/playlists/{{ item.id }}">{{ item.title }}</a></h2>
+    <p class="form-hint">{% if item.visibility == 'private' %}Приватный{% else %}Публичный{% endif %} · {{ item.channel_name }}</p>
+  </article>
+  {% endfor %}
+</section>
+{% endmacro %}
+
+{% if video is defined and video.playback_url %}
+<section class="video-social" data-social-video="{{ video.id }}" aria-label="Взаимодействия с видео">
+  <div class="social-actions">
+    {% if viewer %}<button class="secondary-button like-button" type="button" data-like aria-pressed="false" disabled>♡ Нравится · <span data-likes-count>…</span></button>{% else %}<a class="secondary-button" href="/login">♡ Нравится · <span data-likes-count>…</span></a>{% endif %}
+    <div data-channel-subscription="{{ video.channel_id }}"></div>
+    {% if viewer %}<button class="secondary-button" type="button" data-save-toggle aria-expanded="false" aria-controls="save-playlist-panel">☷ Сохранить</button>{% endif %}
+  </div>
+  <p class="form-message" data-social-error role="status" aria-live="polite" hidden></p>
+  {% if viewer %}
+  <form id="save-playlist-panel" class="save-playlist-form" data-save-playlist hidden>
+    <label for="save-playlist">Мой плейлист</label><select id="save-playlist" name="playlist_id" required><option value="">Загружаем…</option></select>
+    <button class="secondary-button" type="submit">Добавить</button><a class="text-link" href="/playlists">Создать плейлист</a>
+    <p class="form-hint" data-save-result role="status" hidden></p>
+  </form>
+  {% endif %}
+  <section class="comments-section" aria-labelledby="comments-title">
+    <h2 id="comments-title">Комментарии · <span data-comments-count>…</span></h2>
+    {% if viewer %}
+    <form class="comment-form" data-comment-form>
+      <label class="visually-hidden" for="comment-body">Ваш комментарий</label>
+      <textarea id="comment-body" name="body" maxlength="2000" rows="3" placeholder="Напишите комментарий" required></textarea>
+      <button class="primary-button" type="submit">Оставить комментарий</button>
+    </form>
+    {% else %}<p class="form-hint"><a class="text-link" href="/login">Войдите</a>, чтобы оставить комментарий.</p>{% endif %}
+    <p class="form-hint" data-comments-empty>Загружаем комментарии…</p>
+    <div class="comments-list" data-comments-list></div>
+    <button class="secondary-button" type="button" data-comments-more hidden>Ещё комментарии</button>
+  </section>
+</section>
+{% endif %}

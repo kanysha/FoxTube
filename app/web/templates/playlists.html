@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "social_parts.html" import playlist_cards %}
+{% from "video_parts.html" import pagination %}
+{% block content %}
+<section class="content-heading"><p class="eyebrow">Библиотека</p><h1>Мои плейлисты</h1><p>Собирайте видео вместе. Приватный плейлист виден только вам.</p></section>
+<details class="playlist-create-panel"><summary class="secondary-button">Создать плейлист</summary>
+  <form class="video-form playlist-form" data-playlist-create>
+    <div class="form-field"><label for="playlist-title">Название</label><input id="playlist-title" name="title" maxlength="200" required></div>
+    <div class="form-field"><label for="playlist-description">Описание</label><textarea id="playlist-description" name="description" maxlength="2000" rows="3"></textarea></div>
+    <div class="form-field"><label for="playlist-visibility">Кто может видеть плейлист</label><select id="playlist-visibility" name="visibility"><option value="private">Только я</option><option value="public">Все</option></select></div>
+    <p class="form-message" data-social-error role="status" aria-live="polite" hidden></p><button class="primary-button" type="submit">Создать</button>
+  </form>
+</details>
+{% if playlists['items'] %}{{ playlist_cards(playlists['items']) }}{% else %}<section class="empty-state"><h2>Пока нет плейлистов</h2><p>Создайте первый и добавьте видео кнопкой «Сохранить» на странице просмотра.</p></section>{% endif %}
+{{ pagination(playlists, '/playlists') }}
+{% endblock %}

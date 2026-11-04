@@ -10,6 +10,7 @@
   {% endif %}
   <div class="watch-heading"><h1>{{ video.title }}</h1><p class="watch-meta"><a class="channel-avatar" href="/channels/{{ video.channel_id }}" aria-label="Канал: {{ video.channel_name }}">{{ video.channel_name[:1] | upper }}</a><strong><a href="/channels/{{ video.channel_id }}">{{ video.channel_name }}</a></strong><span>{{ video.created_at[:10] }}</span>{% if video.visibility == 'private' %}<span class="privacy-badge">Приватное</span>{% endif %}</p></div>
   {% if video.description %}<div class="video-description">{{ video.description }}</div>{% endif %}
+  {% include 'social_parts.html' %}
   {% if video.can_manage %}
   <section class="video-owner-panel" data-video-owner="{{ video.id }}">
     <h2>Настройки видео</h2><p class="form-hint">Эти настройки видны только вам.</p>
