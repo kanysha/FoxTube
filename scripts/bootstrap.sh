@@ -4,15 +4,20 @@ set -Eeuo pipefail
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd -- "$project_root"
 
+with_demo=false
 if [[ $# -gt 0 ]]; then
     if [[ $# -eq 1 && $1 == --help ]]; then
-        printf '%s\n' 'Usage: bash scripts/bootstrap.sh' \
+        printf '%s\n' 'Usage: bash scripts/bootstrap.sh [--demo]' \
             'On clean Ubuntu 24.04: sudo bash scripts/bootstrap.sh' \
             'Existing configuration and volumes are preserved.'
         exit 0
     fi
-    printf '%s\n' 'Unsupported option. Use --help.' >&2
-    exit 2
+    if [[ $# -eq 1 && $1 == --demo ]]; then
+        with_demo=true
+    else
+        printf '%s\n' 'Unsupported option. Use --help.' >&2
+        exit 2
+    fi
 fi
 
 install_docker() {
@@ -93,6 +98,10 @@ docker compose run --rm --no-deps migrate
 docker compose up -d --no-build --wait --wait-timeout 120 db api worker nginx
 docker compose exec -T nginx nginx -t
 docker compose exec -T nginx nginx -s reload
+
+if [[ $with_demo == true ]]; then
+    bash "$project_root/scripts/demo.sh"
+fi
 
 public_origin=$(docker compose exec -T api python -c 'from app.core.config import get_settings; print(str(get_settings().public_origin).rstrip("/"))')
 printf '\nFoxTube: %s\nSwagger: %s/docs\n' "$public_origin" "$public_origin"
