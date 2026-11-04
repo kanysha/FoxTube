@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.auth.dependencies import ensure_session, optional_session, set_session_cookie
 from app.auth.service import SessionContext
+from app.channels.service import get_channel
 from app.videos.service import get_video, list_videos
 
 WEB_ROOT = Path(__file__).resolve().parent
@@ -185,3 +186,38 @@ def watch(request: Request, video_id: UUID) -> HTMLResponse:
             **viewer_context(state),
         },
     )
+
+
+@router.get("/channels/{channel_id}", response_class=HTMLResponse)
+def channel(
+    request: Request,
+    channel_id: UUID,
+    page: Annotated[int, Query(ge=1, le=10000)] = 1,
+) -> HTMLResponse:
+    state = optional_session(request)
+    viewer_id = state.user.id if state and state.user else None
+    info = get_channel(request.app.state.engine, viewer_id, channel_id=channel_id)
+    videos = list_videos(
+        request.app.state.engine,
+        viewer_id,
+        page=page,
+        channel_id=channel_id,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="channel.html",
+        context={
+            "page_title": info.title,
+            "active_page": "channel",
+            "query": "",
+            "channel": info.model_dump(mode="json"),
+            "videos": videos.model_dump(mode="json"),
+            **viewer_context(state),
+        },
+    )
+
+
+@router.get("/@{handle}")
+def channel_handle(request: Request, handle: str) -> RedirectResponse:
+    info = get_channel(request.app.state.engine, None, handle=handle)
+    return RedirectResponse(f"/channels/{info.id}", status_code=303)

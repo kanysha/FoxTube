@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "video_parts.html" import video_grid, pagination %}
+{% block content %}
+<section class="channel-banner" aria-hidden="true"><img src="/static/logo.svg" alt="" width="90" height="72"><span>Место для ваших историй</span></section>
+<section class="channel-heading" aria-labelledby="channel-title">
+  <span class="channel-avatar channel-avatar-large" aria-hidden="true">{{ channel.title[:1] | upper }}</span>
+  <div><h1 id="channel-title">{{ channel.title }}</h1><p>@{{ channel.handle }} · Доступных видео: {{ channel.videos_count }}</p>
+    {% if channel.can_manage %}<div class="button-row"><a class="secondary-button" href="/studio">Мои видео</a><a class="primary-button" href="/upload">Загрузить видео</a></div>{% endif %}
+  </div>
+</section>
+<h2 class="channel-section-title">Видео</h2>
+{% if videos['items'] %}
+  {{ video_grid(videos['items']) }}
+  {{ pagination(videos, '/channels/' ~ channel.id) }}
+{% else %}
+  <section class="empty-state"><h2>Пока нет доступных видео</h2><p class="empty-description">Здесь появятся опубликованные видео автора, которые вы можете смотреть.</p>{% if channel.can_manage %}<a class="text-link" href="/upload">Загрузить первое видео →</a>{% endif %}</section>
+{% endif %}
+{% endblock %}

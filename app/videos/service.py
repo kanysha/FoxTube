@@ -82,6 +82,7 @@ def list_videos(
     page: int = 1,
     mine: bool = False,
     page_size: int = 20,
+    channel_id: UUID | None = None,
 ) -> VideoPage:
     predicate = readable(viewer_id)
     if mine:
@@ -92,6 +93,11 @@ def list_videos(
         # Literal substring search: user '%' and '_' must not expand the query.
         escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         predicate = and_(predicate, Video.title.ilike(f"%{escaped}%", escape="\\"))
+    if channel_id is not None:
+        predicate = and_(
+            predicate,
+            Video.owner_id.in_(select(Channel.user_id).where(Channel.id == channel_id)),
+        )
     page_size = max(1, min(page_size, 50))
     page = max(1, min(page, 10000))
     with Session(engine) as session:

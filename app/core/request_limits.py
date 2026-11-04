@@ -1,7 +1,21 @@
+from uuid import UUID
+
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 AUTH_BODY_LIMIT = 16 * 1024
+
+
+def is_video_source(scope: Scope) -> bool:
+    if scope["method"] != "PUT":
+        return False
+    parts = str(scope["path"]).split("/")
+    if len(parts) != 6 or parts[1:4] != ["api", "v1", "videos"] or parts[5] != "source":
+        return False
+    try:
+        return str(UUID(parts[4])) == parts[4].lower()
+    except ValueError:
+        return False
 
 
 class AuthBodyLimitMiddleware:
@@ -11,9 +25,9 @@ class AuthBodyLimitMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if (
             scope["type"] != "http"
-            or not scope["path"].startswith(("/api/v1/auth/", "/api/v1/videos"))
-            or scope["path"].endswith("/source")
+            or not scope["path"].startswith("/api/v1/")
             or scope["method"] not in {"POST", "PUT", "PATCH", "DELETE"}
+            or is_video_source(scope)
         ):
             await self.app(scope, receive, send)
             return

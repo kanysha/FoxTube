@@ -12,7 +12,7 @@
     </a>
     <div class="video-card-info">
       <h2><a href="/watch/{{ video.id }}">{{ video.title }}</a></h2>
-      <p class="video-channel-name">{{ video.channel_name }}</p>
+      <p class="video-channel-name"><a href="/channels/{{ video.channel_id }}">{{ video.channel_name }}</a></p>
       <p class="video-card-meta"><time datetime="{{ video.created_at }}">{{ video.created_at[:10] }}</time>{% if video.visibility == 'private' %}<span class="privacy-badge">Приватное</span>{% endif %}</p>
       {% if own %}<p class="video-status" data-status-label>{{ status_label(video.status) }}</p><a class="manage-video-link" href="/watch/{{ video.id }}">Открыть и управлять <span aria-hidden="true">→</span></a>{% endif %}
     </div>

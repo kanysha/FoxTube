@@ -17,7 +17,7 @@
   <dl class="account-details">
     <div><dt>Email</dt><dd>{{ viewer.email }}</dd></div>
     <div><dt>Имя</dt><dd>{{ viewer.display_name }}</dd></div>
-    <div><dt>Адрес канала</dt><dd>@{{ viewer.channel_handle }}</dd></div>
+    <div><dt>Адрес канала</dt><dd><a class="text-link" href="/@{{ viewer.channel_handle }}">@{{ viewer.channel_handle }}</a></dd></div>
     <div><dt>Роль</dt><dd>{{ {'user': 'Пользователь', 'moderator': 'Модератор', 'admin': 'Администратор'}.get(viewer.role, viewer.role) }}</dd></div>
   </dl>
   <div class="button-row account-video-actions">

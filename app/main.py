@@ -9,6 +9,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.staticfiles import StaticFiles
 
 from app.auth.routes import router as auth_router
+from app.channels.routes import router as channel_router
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine
 from app.core.request_limits import AuthBodyLimitMiddleware
@@ -67,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application.include_router(health_router)
     application.include_router(auth_router)
+    application.include_router(channel_router)
     application.include_router(video_router)
     application.include_router(media_router)
     application.include_router(web_router)
