@@ -3,12 +3,14 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
+from fastapi import Path as PathParameter
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.auth.dependencies import ensure_session, optional_session, set_session_cookie
 from app.auth.service import SessionContext
 from app.channels.service import get_channel
+from app.core.text import DatabaseText
 from app.videos.service import get_video, list_videos
 
 WEB_ROOT = Path(__file__).resolve().parent
@@ -49,7 +51,7 @@ def home(
 @router.get("/search", response_class=HTMLResponse)
 def search(
     request: Request,
-    q: Annotated[str, Query(max_length=200)] = "",
+    q: Annotated[DatabaseText, Query(max_length=200)] = "",
     page: Annotated[int, Query(ge=1, le=10000)] = 1,
 ) -> HTMLResponse:
     state = optional_session(request)
@@ -218,6 +220,9 @@ def channel(
 
 
 @router.get("/@{handle}")
-def channel_handle(request: Request, handle: str) -> RedirectResponse:
+def channel_handle(
+    request: Request,
+    handle: Annotated[DatabaseText, PathParameter(min_length=1, max_length=80)],
+) -> RedirectResponse:
     info = get_channel(request.app.state.engine, None, handle=handle)
     return RedirectResponse(f"/channels/{info.id}", status_code=303)

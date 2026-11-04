@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.core.text import database_text
 from app.videos.limits import MAX_SOURCE_BYTES
 
 
@@ -18,7 +19,7 @@ class VideoInput(BaseModel):
     @field_validator("title", "description", mode="before")
     @classmethod
     def strip_text(cls, value: object) -> object:
-        return value.strip() if isinstance(value, str) else value
+        return database_text(value)
 
 
 class VideoPatch(BaseModel):
@@ -31,7 +32,7 @@ class VideoPatch(BaseModel):
     @field_validator("title", "description", mode="before")
     @classmethod
     def strip_text(cls, value: object) -> object:
-        return value.strip() if isinstance(value, str) else value
+        return database_text(value)
 
 
 class VideoView(BaseModel):

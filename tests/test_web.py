@@ -33,6 +33,13 @@ def test_search_escapes_user_text(client: TestClient) -> None:
     assert client.get("/search", params={"q": "a" * 201}).status_code == 422
 
 
+def test_channel_handle_rejects_invalid_text_before_database_access(
+    client: TestClient,
+) -> None:
+    assert client.get("/@bad%00handle").status_code == 422
+    assert client.get("/@" + "a" * 81).status_code == 422
+
+
 def test_local_swagger_and_openapi(client: TestClient) -> None:
     response = client.get("/docs")
     assert response.status_code == 200

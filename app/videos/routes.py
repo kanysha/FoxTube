@@ -16,6 +16,7 @@ from app.auth.dependencies import (
 from app.auth.rate_limits import check_limits
 from app.auth.schemas import UserView
 from app.auth.service import SessionContext
+from app.core.text import DatabaseText
 from app.videos import service
 from app.videos.schemas import (
     GrantInput,
@@ -48,7 +49,7 @@ Reader = Annotated[SessionContext | None, Depends(optional_session)]
 def feed(
     request: Request,
     state: Reader,
-    q: str = Query(default="", max_length=200),
+    q: Annotated[DatabaseText, Query(max_length=200)] = "",
     page: int = Query(default=1, ge=1, le=10000),
     page_size: int = Query(default=20, ge=1, le=50),
 ) -> VideoPage:

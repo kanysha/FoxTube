@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_validator
 
+from app.core.text import database_text
+
 
 class LoginInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -15,6 +17,15 @@ class LoginInput(BaseModel):
     def normalize_email(cls, value: object) -> object:
         return value.strip().casefold() if isinstance(value, str) else value
 
+    @field_validator("password", mode="before")
+    @classmethod
+    def valid_password_encoding(cls, value: object) -> object:
+        if isinstance(value, str) and any(
+            0xD800 <= ord(char) <= 0xDFFF for char in value
+        ):
+            raise ValueError("Пароль содержит недопустимый символ.")
+        return value
+
 
 class RegisterInput(LoginInput):
     display_name: str = Field(min_length=1, max_length=80)
@@ -22,7 +33,7 @@ class RegisterInput(LoginInput):
     @field_validator("display_name", mode="before")
     @classmethod
     def trim_name(cls, value: object) -> object:
-        return value.strip() if isinstance(value, str) else value
+        return database_text(value)
 
 
 class LogoutInput(BaseModel):

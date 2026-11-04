@@ -612,6 +612,46 @@ def test_invalid_password_is_not_echoed_or_persisted(
     require(count == 0, "Invalid registration persisted a user")
 
 
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("display_name", "Имя\x00автора"),
+        ("display_name", "Имя\ud800автора"),
+        ("password", "Invalid-password-\ud800-42!"),
+    ],
+)
+def test_registration_rejects_unencodable_text_without_persisting(
+    make_browser: Callable[[], AuthBrowser],
+    auth_database: Engine,
+    field_name: str,
+    value: str,
+) -> None:
+    browser = make_browser()
+    email = new_email()
+    payload = {"email": email, "password": TEST_PASSWORD, "display_name": "Автор"}
+    payload[field_name] = value
+    response = browser.client.post(
+        "/api/v1/auth/register",
+        content=json.dumps(payload),
+        headers={
+            "Origin": browser.origin,
+            "X-CSRF-Token": browser.csrf_token,
+            "Content-Type": "application/json",
+        },
+    )
+    expect_status(response, 422)
+    require(TEST_PASSWORD not in response.text, "Validation error echoed credentials")
+    with auth_database.connect() as connection:
+        require(
+            connection.scalar(
+                text("SELECT count(*) FROM users WHERE email = :email"),
+                {"email": email},
+            )
+            == 0,
+            "Unencodable registration persisted an account",
+        )
+
+
 @pytest.mark.parametrize("extra_field", ["role", "user_id"])
 def test_registration_cannot_assign_privilege_or_owner_fields(
     make_browser: Callable[[], AuthBrowser], auth_database: Engine, extra_field: str

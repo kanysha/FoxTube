@@ -21,6 +21,15 @@ from app.core.db import make_engine
 pytestmark = pytest.mark.integration
 
 
+@pytest.mark.parametrize("path", ["/api/v1/videos", "/search"])
+def test_search_rejects_nul_before_database_access(path: str) -> None:
+    base_url = os.environ.get("FOXTUBE_TEST_BASE_URL")
+    if not base_url:
+        pytest.fail("Use bash scripts/test.sh for isolated integration tests")
+    with httpx.Client(base_url=base_url) as client:
+        expect_status(client.get(path, params={"q": "bad\x00query"}), 422)
+
+
 @dataclass(repr=False)
 class VideoAccounts:
     owner: AuthBrowser = field(repr=False)
@@ -683,6 +692,10 @@ def test_non_video_source_fails_without_publishing(
         {"expected_size": 0},
         {"expected_size": 500 * 1024 * 1024 + 1},
         {"title": "   "},
+        {"title": "Заголовок\x00"},
+        {"title": "Заголовок\ud800"},
+        {"description": "Описание\x00"},
+        {"description": "Описание\ud800"},
         {"visibility": "unlisted"},
         {"status": "READY"},
         {"owner_id": str(uuid4())},
@@ -700,7 +713,17 @@ def test_upload_metadata_rejects_invalid_limits_and_mass_assignment(
         "expected_size": 1024,
     }
     payload.update(changes)
-    expect_status(video_accounts.owner.post("/api/v1/videos", payload), 422)
+    expect_status(
+        video_accounts.owner.client.post(
+            "/api/v1/videos",
+            content=json.dumps(payload),
+            headers={
+                **mutation_headers(video_accounts.owner),
+                "Content-Type": "application/json",
+            },
+        ),
+        422,
+    )
 
 
 def test_foreign_owner_mutations_cannot_change_or_delete_a_video(
