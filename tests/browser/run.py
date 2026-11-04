@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from playwright.sync_api import Page, expect, sync_playwright
+from staff import check_moderation
 
 
 def require(condition: bool, message: str) -> None:
@@ -78,6 +79,48 @@ def assert_no_overflow(page: Page) -> None:
         ),
         "Page has horizontal overflow at the tested viewport",
     )
+
+
+def check_social(page: Page, base_url: str, watch_path: str) -> dict[str, Any]:
+    like = page.locator("[data-like]")
+    expect(like).to_be_enabled()
+    like.click()
+    expect(like).to_have_attribute("aria-pressed", "true")
+    expect(page.locator("[data-likes-count]")).to_have_text("1")
+    comment = "Проверка сохранения: <script>window.commentExecuted=true</script>"
+    page.get_by_label("Ваш комментарий", exact=True).fill(comment)
+    page.get_by_role("button", name="Оставить комментарий", exact=True).click()
+    expect(page.locator("[data-comments-list]")).to_contain_text(comment)
+    page.reload()
+    expect(page.locator("[data-like]")).to_have_attribute("aria-pressed", "true")
+    expect(page.locator("[data-comments-list]")).to_contain_text(comment)
+    require(
+        page.evaluate("() => !window.commentExecuted"), "Comment executed JavaScript"
+    )
+
+    page.goto(f"{base_url}/playlists")
+    page.locator("details summary").click()
+    page.get_by_label("Название", exact=True).fill("Реальная подборка Chrome")
+    page.get_by_label("Кто может видеть плейлист", exact=True).select_option("public")
+    page.get_by_role("button", name="Создать", exact=True).click()
+    page.wait_for_url(f"{base_url}/playlists/*")
+    playlist_path = urlsplit(page.url).path
+    page.goto(base_url + watch_path)
+    page.locator("[data-save-toggle]").click()
+    page.locator("[data-save-playlist] select").select_option(
+        playlist_path.rsplit("/", 1)[1]
+    )
+    page.locator("[data-save-playlist] button[type=submit]").click()
+    expect(page.locator("[data-save-result]")).to_be_visible()
+    page.goto(base_url + playlist_path)
+    expect(page.locator(f'a[href="{watch_path}"]').first).to_be_visible()
+    assert_no_overflow(page)
+    page.goto(base_url + watch_path)
+    return {
+        "like": "persisted",
+        "comment": "persisted and escaped",
+        "playlist": playlist_path,
+    }
 
 
 def main() -> None:
@@ -155,7 +198,8 @@ def main() -> None:
                     ).click()
                 response = created.value
                 require(response.status == 201, "UI metadata creation failed")
-                video_id = response.json()["id"]
+                created_video = response.json()
+                video_id = created_video["id"]
                 watch_path = f"/watch/{video_id}"
                 report["video_id"] = video_id
                 page.wait_for_function(
@@ -213,8 +257,71 @@ def main() -> None:
                     "video => video.currentTime"
                 )
                 player.evaluate("video => video.pause()")
+                report["social"] = check_social(page, base_url, watch_path)
+                player = page.locator("video")
                 assert_no_overflow(page)
                 page.screenshot(path=artifacts / "watch-desktop.png", full_page=True)
+
+                viewer_context = browser.new_context(
+                    viewport={"width": 1440, "height": 900}, locale="ru-RU"
+                )
+                try:
+                    viewer = viewer_context.new_page()
+                    viewer.on(
+                        "pageerror", lambda error: errors.append(type(error).__name__)
+                    )
+                    viewer.goto(f"{base_url}/register")
+                    viewer.get_by_label("Имя", exact=True).fill("Зритель проверки")
+                    viewer_email = f"viewer-{uuid4().hex}@example.com"
+                    viewer.get_by_label("Email", exact=True).fill(viewer_email)
+                    viewer.get_by_label("Пароль", exact=True).fill(
+                        "Disposable-viewer-passphrase-42!"
+                    )
+                    viewer.get_by_role(
+                        "button", name="Создать аккаунт", exact=True
+                    ).click()
+                    viewer.wait_for_url(f"{base_url}/account")
+                    viewer.goto(f"{base_url}/channels/{created_video['channel_id']}")
+                    subscription = viewer.locator("[data-channel-subscription] button")
+                    expect(subscription).to_have_text("Подписаться")
+                    subscription.click()
+                    expect(
+                        viewer.locator("[data-channel-subscription] button")
+                    ).to_have_attribute("aria-pressed", "true")
+                    viewer.reload()
+                    expect(
+                        viewer.locator("[data-channel-subscription] button")
+                    ).to_have_attribute("aria-pressed", "true")
+                    expect(
+                        viewer.locator(
+                            f'a[href="{report["social"]["playlist"]}"]'
+                        ).first
+                    ).to_be_visible()
+                    assert_no_overflow(viewer)
+                    viewer.screenshot(
+                        path=artifacts / "channel-desktop.png", full_page=True
+                    )
+                    viewer.goto(f"{base_url}/subscriptions")
+                    expect(
+                        viewer.locator(f'a[href="{watch_path}"]').first
+                    ).to_be_visible()
+                    viewer.goto(base_url + watch_path)
+                    viewer.locator("details.video-report summary").click()
+                    viewer.get_by_label("Причина жалобы").fill(
+                        "Реальная жалоба из браузерной проверки."
+                    )
+                    viewer.get_by_role(
+                        "button", name="Отправить жалобу", exact=True
+                    ).click()
+                    expect(
+                        viewer.locator("[data-video-report] [data-moderation-message]")
+                    ).to_contain_text("Жалоба")
+                    report["subscriptions_and_report"] = "persisted through UI"
+                    report["staff"] = check_moderation(
+                        browser, base_url, video_id, viewer, viewer_email, errors
+                    )
+                finally:
+                    viewer_context.close()
 
                 page.set_viewport_size({"width": 390, "height": 844})
                 page.wait_for_function(
@@ -254,7 +361,9 @@ def main() -> None:
                 report["status"] = "passed"
                 print(
                     "Chrome E2E passed: registration, UI upload, FFmpeg, H.264, "
-                    "advancing currentTime, seek, search, desktop/mobile."
+                    "advancing currentTime, seek, likes/comments/playlists, "
+                    "subscription/report, role change, moderation, audit, "
+                    "last admin protection, search, desktop/mobile."
                 )
             except BaseException as error:
                 report["failure_type"] = type(error).__name__

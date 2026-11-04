@@ -38,6 +38,7 @@ RUN pip install --no-cache-dir --requirement /browser/requirements.txt \
     && mkdir -p /artifacts \
     && chown 1000:1000 /artifacts
 COPY tests/browser/run.py /browser/run.py
+COPY tests/browser/staff.py /browser/staff.py
 WORKDIR /browser
 USER 1000:1000
 CMD ["python", "/browser/run.py"]

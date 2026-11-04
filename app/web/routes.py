@@ -11,6 +11,7 @@ from app.auth.dependencies import ensure_session, optional_session, set_session_
 from app.auth.service import SessionContext
 from app.channels.service import get_channel
 from app.core.text import DatabaseText
+from app.social.service import channel_playlists
 from app.videos.service import get_video, list_videos
 
 WEB_ROOT = Path(__file__).resolve().parent
@@ -195,6 +196,7 @@ def channel(
     request: Request,
     channel_id: UUID,
     page: Annotated[int, Query(ge=1, le=10000)] = 1,
+    playlist_page: Annotated[int, Query(ge=1, le=10000)] = 1,
 ) -> HTMLResponse:
     state = optional_session(request)
     viewer_id = state.user.id if state and state.user else None
@@ -205,6 +207,9 @@ def channel(
         page=page,
         channel_id=channel_id,
     )
+    playlists = channel_playlists(
+        request.app.state.engine, channel_id, viewer_id, page=playlist_page
+    )
     return templates.TemplateResponse(
         request=request,
         name="channel.html",
@@ -214,6 +219,7 @@ def channel(
             "query": "",
             "channel": info.model_dump(mode="json"),
             "videos": videos.model_dump(mode="json"),
+            "playlists": playlists.model_dump(mode="json"),
             **viewer_context(state),
         },
     )

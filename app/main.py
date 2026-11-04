@@ -39,7 +39,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(
         title="FoxTube API",
         version="0.1.0",
-        description="API FoxTube: учётные записи, загрузка и просмотр видео.",
+        description=(
+            "API FoxTube: учётные записи, каналы, видео, подписки, "
+            "комментарии, плейлисты и модерация."
+        ),
         docs_url=None,
         redoc_url=None,
         lifespan=lifespan,

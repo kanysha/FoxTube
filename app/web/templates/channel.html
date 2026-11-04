@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% from "video_parts.html" import video_grid, pagination %}
+{% from "social_parts.html" import playlist_cards %}
 {% block content %}
 <section class="channel-banner" aria-hidden="true"><img src="/static/logo.svg" alt="" width="90" height="72"><span>Место для ваших историй</span></section>
 <section class="channel-heading" aria-labelledby="channel-title">
   <span class="channel-avatar channel-avatar-large" aria-hidden="true">{{ channel.title[:1] | upper }}</span>
   <div><h1 id="channel-title">{{ channel.title }}</h1><p>@{{ channel.handle }} · Доступных видео: {{ channel.videos_count }}</p>
     {% if channel.can_manage %}<div class="button-row"><a class="secondary-button" href="/studio">Мои видео</a><a class="primary-button" href="/upload">Загрузить видео</a></div>{% endif %}
+    <div data-channel-subscription="{{ channel.id }}"></div>
   </div>
 </section>
 <h2 class="channel-section-title">Видео</h2>
@@ -14,5 +16,18 @@
   {{ pagination(videos, '/channels/' ~ channel.id) }}
 {% else %}
   <section class="empty-state"><h2>Пока нет доступных видео</h2><p class="empty-description">Здесь появятся опубликованные видео автора, которые вы можете смотреть.</p>{% if channel.can_manage %}<a class="text-link" href="/upload">Загрузить первое видео →</a>{% endif %}</section>
+{% endif %}
+<h2 class="channel-section-title">Плейлисты</h2>
+{% if playlists['items'] %}
+  {{ playlist_cards(playlists['items']) }}
+{% else %}
+  <p class="form-hint">Пока нет доступных плейлистов.{% if channel.can_manage %} <a class="text-link" href="/playlists">Создать плейлист</a>{% endif %}</p>
+{% endif %}
+{% if playlists.total > playlists.page_size or playlists.page > 1 %}
+<nav class="pagination" aria-label="Страницы плейлистов канала">
+  {% if playlists.page > 1 %}<a class="secondary-button" href="/channels/{{ channel.id }}?page={{ videos.page }}&amp;playlist_page={{ playlists.page - 1 }}">← Назад</a>{% endif %}
+  <span>Плейлисты · Страница {{ playlists.page }}</span>
+  {% if playlists.page * playlists.page_size < playlists.total %}<a class="secondary-button" href="/channels/{{ channel.id }}?page={{ videos.page }}&amp;playlist_page={{ playlists.page + 1 }}">Далее →</a>{% endif %}
+</nav>
 {% endif %}
 {% endblock %}
