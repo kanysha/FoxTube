@@ -5,19 +5,34 @@ project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd -- "$project_root"
 
 with_demo=false
-if [[ $# -gt 0 ]]; then
-    if [[ $# -eq 1 && $1 == --help ]]; then
-        printf '%s\n' 'Usage: bash scripts/bootstrap.sh [--demo]' \
-            'On clean Ubuntu 22.04/24.04: sudo bash scripts/bootstrap.sh' \
-            'Existing configuration and volumes are preserved.'
-        exit 0
-    fi
-    if [[ $# -eq 1 && $1 == --demo ]]; then
-        with_demo=true
-    else
-        printf '%s\n' 'Unsupported option. Use --help.' >&2
-        exit 2
-    fi
+with_lan=true
+lan_ip=''
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help)
+            printf '%s\n' 'Usage: bash scripts/bootstrap.sh [--demo] [--no-lan | --lan-ip ADDRESS]' \
+                'On clean Ubuntu 22.04/24.04: sudo bash scripts/bootstrap.sh' \
+                'Root Ubuntu installs publish only Nginx to the connected private LAN.' \
+                '--no-lan skips automatic networking; it does not remove existing rules.' \
+                'Passwords and persistent volumes are preserved.'
+            exit 0
+            ;;
+        --demo) with_demo=true; shift ;;
+        --no-lan) with_lan=false; shift ;;
+        --lan-ip)
+            if [[ $# -lt 2 || -z $2 ]]; then
+                printf '%s\n' '--lan-ip requires an assigned private IPv4 address.' >&2
+                exit 2
+            fi
+            lan_ip=$2
+            shift 2
+            ;;
+        *) printf '%s\n' 'Unsupported option. Use --help.' >&2; exit 2 ;;
+    esac
+done
+if [[ $with_lan == false && -n $lan_ip ]]; then
+    printf '%s\n' '--no-lan and --lan-ip cannot be combined.' >&2
+    exit 2
 fi
 
 supported_ubuntu_codename() {
@@ -148,6 +163,32 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 bash "$project_root/scripts/configure.sh" "$project_root/.env"
+if [[ $with_lan == true && $(uname -s) == Linux && -r /etc/os-release ]]; then
+    # This is the operating system's own file, never the project .env.
+    # shellcheck source=/dev/null
+    source /etc/os-release
+    if [[ ${ID:-} == ubuntu ]]; then
+        if [[ $EUID -ne 0 ]]; then
+            printf '%s\n' 'LAN setup needs root. Use sudo, or --no-lan for manual networking.' >&2
+            exit 1
+        fi
+        if ! command -v python3 >/dev/null 2>&1 || ! command -v nft >/dev/null 2>&1; then
+            apt-get update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y python3 nftables
+        fi
+        lan_arguments=("$project_root/.env")
+        if [[ -n $lan_ip ]]; then
+            lan_arguments+=(--lan-ip "$lan_ip")
+        fi
+        python3 "$project_root/scripts/configure_lan.py" "${lan_arguments[@]}"
+    elif [[ -n $lan_ip ]]; then
+        printf '%s\n' 'Automatic LAN setup supports Ubuntu only.' >&2
+        exit 1
+    fi
+elif [[ -n $lan_ip ]]; then
+    printf '%s\n' 'Automatic LAN setup requires root Ubuntu.' >&2
+    exit 1
+fi
 docker compose config --quiet
 docker compose build db api
 docker compose up -d --wait --wait-timeout 120 db

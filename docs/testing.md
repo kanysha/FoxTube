@@ -187,22 +187,48 @@ vendored JavaScript и не заменяет ревью приложения.
 и private с двумя получателями и выборочным отзывом. Администратор и отдельный
 Compose-проект не требуются. Сценарий создаёт четыре обычных аккаунта и два
 синтетических видео; они остаются в приложении. Пароли существуют только в памяти.
-Запускайте на выделенной тестовой ВМ с loopback-портом 8080 из корня проекта:
+Запускайте из корня проекта против выделенной тестовой ВМ. Для LAN-адреса
+контейнер Chrome может работать на другом компьютере без host networking:
 
 ```bash
 docker build -f Dockerfile.browser -t foxtube-browser:ubuntu .
-install -d -o 1000 -g 1000 .artifacts/ubuntu
-docker run --rm --init --network host --pids-limit 1024 --shm-size 256m \
+mkdir -p .artifacts/lan-browser
+docker run --rm --init --pids-limit 1024 --shm-size 256m \
   --memory 2g --cpus 2 --read-only --tmpfs /tmp:size=512m,mode=1777 \
   --cap-drop ALL --security-opt no-new-privileges:true \
   -e PYTHONPATH=/tests/browser \
-  -e FOXTUBE_TEST_BASE_URL=http://localhost:8080 \
-  -e FOXTUBE_BROWSER_ARTIFACTS=/artifacts/ubuntu \
+  -e FOXTUBE_TEST_BASE_URL=http://192.168.1.16:8080 \
+  -e FOXTUBE_BROWSER_ARTIFACTS=/artifacts/lan-browser \
   -v "$PWD/tests:/tests:ro" -v "$PWD/.artifacts:/artifacts" \
   foxtube-browser:ubuntu python /tests/deployment/browser.py
 ```
 
-Снимки и безопасный JSON — `.artifacts/ubuntu/`. Для каждой попытки установки
+На Linux каталог результатов должен быть доступен UID1000 контейнера. Для
+loopback-target используйте `--network host` на Linux и точный origin localhost.
+Runner принимает base origin только на loopback/RFC1918 IPv4, без публичных доменов;
+PUBLIC_ORIGIN установленного приложения обязан совпадать с выбранным адресом.
+Снимки и безопасный JSON — `.artifacts/lan-browser/`.
+
+Перед браузером с другого компьютера в LAN выполните проверку HTTP и портов:
+
+```bash
+python3 tests/deployment/network.py --base-url http://192.168.1.16:8080 \
+  --output .artifacts/lan/network.json
+```
+
+Проверяются readiness, главная, Swagger, доступность TCP8080/22 и недоступность
+5432/6379/8000. Это проба стандартных портов, не полный скан и не проверка
+внутренних socket: отдельно сверяйте итоговые Docker mappings и nft rules.
+Для нестандартного порта приложения проверяйте его отдельно. Проверка ничего
+не устанавливает, не меняет SSH/firewall и не использует proxy.
+
+LAN-приёмка дополнительно требует: повтор bootstrap без изменения .env/данных,
+reboot с автоматическим поднятием фильтра и приложения, внешний запрос из LAN,
+отказ источнику вне подсети и неизменность SSH/UFW. Unit-тесты выбора адреса,
+настроек и защитных отказов не заменяют эти испытания на настоящей Ubuntu.
+Выполненные проверки и найденные ошибки — [отчёт LAN](review-lan-2026-11-05.md).
+
+Для каждой попытки установки
 после отказа нужен автоматический возврат внешним контроллером к полному снимку
 ВМ, затем сверка исходных пакетов/настроек. Протокол отката описан в
 [development.md](development.md#испытания-на-чистой-ubuntu-и-откат), выполненные
