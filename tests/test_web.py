@@ -58,6 +58,7 @@ def test_security_headers_and_host_validation(client: TestClient) -> None:
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert "script-src 'self'" in response.headers["content-security-policy"]
+    assert "media-src 'self' blob:" in response.headers["content-security-policy"]
     assert "'unsafe-inline'" not in response.headers["content-security-policy"]
     assert response.headers["cache-control"] == "no-store"
     assert client.get("/", headers={"Host": "attacker.invalid"}).status_code == 400

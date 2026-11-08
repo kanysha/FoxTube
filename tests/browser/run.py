@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from lifecycle import check_lifecycle
 from player import check_player
+from player_extended import check_player_extended
 from playwright.sync_api import Page, expect, sync_playwright
 from privacy import check_privacy
 from staff import check_moderation
@@ -270,6 +271,9 @@ def main() -> None:
                 )
                 player.evaluate("video => video.pause()")
                 report["styled_player"] = check_player(
+                    browser, page, base_url, watch_path, artifacts, errors
+                )
+                report["extended_player"] = check_player_extended(
                     browser, page, base_url, watch_path, artifacts, errors
                 )
                 report["social"] = check_social(page, base_url, watch_path)

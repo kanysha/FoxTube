@@ -18,6 +18,7 @@ class SecurityHeadersMiddleware:
                 headers["Content-Security-Policy"] = (
                     "default-src 'self'; script-src 'self'; "
                     f"style-src {styles}; img-src 'self' data:; connect-src 'self'; "
+                    "media-src 'self' blob:; "
                     "object-src 'none'; base-uri 'self'; form-action 'self'; "
                     "frame-ancestors 'none'"
                 )

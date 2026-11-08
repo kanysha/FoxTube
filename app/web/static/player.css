@@ -16,10 +16,27 @@
 .fox-player-button svg { width: 24px; height: 24px; fill: currentColor; stroke: none; }
 .fox-player-button .fox-player-sound-lines { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .fox-player button:focus-visible, .fox-player input:focus-visible { outline: 2px solid #ffb886; outline-offset: 2px; }
-.fox-player-time { flex: none; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.fox-player-wordmark { margin-left: auto; color: rgb(255 255 255 / 78%); font-size: 13px; font-weight: 700; letter-spacing: -.4px; }
-.fox-player-fullscreen { margin-left: auto; }
-.fox-player-wordmark + .fox-player-fullscreen { margin-left: 5px; }
+.fox-player-time { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fox-player-spacer { flex: 1; }
+.fox-player-button:disabled { cursor: default; opacity: .4; }
+.fox-player-button[aria-pressed="true"], .fox-player-button[aria-expanded="true"] { box-shadow: inset 0 -3px #ed573b; }
+.fox-player-feedback { position: absolute; z-index: 4; top: 16px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); padding: 8px 14px; border-radius: 6px; background: rgb(0 0 0 / 75%); color: white; font-size: 13px; text-align: center; pointer-events: none; }
+.fox-player-settings { position: absolute; z-index: 5; right: 14px; bottom: 86px; width: min(340px, calc(100% - 28px)); max-height: calc(100% - 100px); overflow-y: auto; overscroll-behavior: contain; padding: 12px; border: 1px solid #555; border-radius: 12px; background: rgb(24 24 24 / 97%); box-shadow: 0 4px 24px #0006; font-size: 13px; }
+.fox-player-settings label { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.fox-player-settings select { min-width: 0; max-width: 63%; min-height: 36px; padding: 5px; border: 1px solid #666; border-radius: 6px; background: #292929; color: #fff; font: inherit; }
+.fox-player-settings input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ed573b; }
+.fox-player-settings .fox-player-caption-file { display: grid; gap: 4px; margin-top: 8px; }
+.fox-player-caption-file input { width: 100%; font-size: 12px; }
+.fox-player-hint { margin: 6px 0 10px; color: #c5c5c5; font-size: 11px; line-height: 1.55; }
+.fox-player-settings-action, .fox-player-settings summary { display: block; width: 100%; min-height: 44px; padding: 10px 6px; border: 0; border-radius: 6px; background: transparent; color: #fff; text-align: left; font: inherit; cursor: pointer; }
+.fox-player-settings-action:hover, .fox-player-settings summary:hover { background: #ffffff1a; }
+.fox-player-settings-action[aria-pressed="true"] { color: #ffb886; }
+.fox-player-settings :focus-visible { outline: 2px solid #ffb886; outline-offset: -2px; }
+.fox-player-seek-preview { position: absolute; bottom: 30px; transform: translateX(-50%); padding: 4px 7px; border-radius: 4px; background: #111d; font-size: 12px; pointer-events: none; }
+.watch-page.is-theater { max-width: none; }
+.fox-player.is-theater { aspect-ratio: 21 / 9; }
+.fox-player.is-theater .video-player { max-height: 74vh; }
+.fox-player video::cue { background: rgb(0 0 0 / 80%); color: #fff; }
 .fox-player-volume { width: 72px; height: 32px; margin: 0 8px 0 0; padding: 0; accent-color: #fff; cursor: pointer; }
 .fox-player-timeline { position: relative; height: 24px; }
 .fox-player-track { position: absolute; top: 10px; right: 0; left: 0; height: 4px; overflow: hidden; border-radius: 5px; background: rgb(255 255 255 / 25%); }
@@ -36,11 +53,13 @@
 @media (max-width: 599px) {
   .fox-player-controls { padding: 25px 10px 4px; }
   .fox-player-toolbar { gap: 2px; }
-  .fox-player-volume { width: 50px; margin-right: 7px; }
-  .fox-player-wordmark { display: none; }
-  .fox-player-wordmark + .fox-player-fullscreen { margin-left: auto; }
+  .fox-player-volume { width: 40px; margin-right: 4px; }
+  .fox-player-time { font-size: 11px; }
+  .fox-player-settings { right: 8px; bottom: 76px; width: calc(100% - 16px); max-height: calc(100% - 82px); padding: 8px 12px; border-radius: 8px; }
   .fox-player-center { width: 88px; height: 72px; }
   .fox-player-center img { width: 64px; }
   .fox-player-message { top: 7px; right: 7px; left: 7px; font-size: 11px; padding: 7px 10px; }
 }
+@media (max-width: 359px) { .fox-player-volume { display: none; } .fox-player-toolbar { gap: 0; } .fox-player-controls { padding-right: 6px; padding-left: 6px; } }
+@media (pointer: coarse) { .fox-player.is-theater { aspect-ratio: 16 / 9; } }
 @media (prefers-reduced-motion: reduce) { .fox-player-controls { transition: none; } }
