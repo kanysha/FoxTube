@@ -1,15 +1,18 @@
 "use strict";
 
-(() => {
+window.FoxTubePage.register((page) => {
   const indicator = document.querySelector('[data-navigation-loading]');
   if (!indicator) return;
   let timer;
   const reset = () => { window.clearTimeout(timer); indicator.hidden = true; };
   const start = () => {
     reset();
-    timer = window.setTimeout(() => { indicator.hidden = false; }, 200);
+    timer = page.timeout(() => { indicator.hidden = false; }, 200);
   };
-  document.addEventListener('click', (event) => {
+  page.cleanup(reset);
+  page.listen(document, 'foxtube:navigation-start', start);
+  page.listen(document, 'foxtube:navigation-end', reset);
+  page.listen(document, 'click', (event) => {
     if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     const link = event.target.closest('a[href]');
     if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
@@ -18,9 +21,9 @@
     if (url.pathname === location.pathname && url.search === location.search) return;
     start();
   });
-  document.addEventListener('submit', (event) => {
+  page.listen(document, 'submit', (event) => {
     if (!event.defaultPrevented && event.target.matches('form[method="get"]')) start();
   });
-  window.addEventListener('pageshow', reset);
-  window.addEventListener('pagehide', reset);
-})();
+  page.listen(window, 'pageshow', reset);
+  page.listen(window, 'pagehide', reset);
+});

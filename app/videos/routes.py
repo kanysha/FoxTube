@@ -24,6 +24,7 @@ from app.videos.schemas import (
     VideoInput,
     VideoPage,
     VideoPatch,
+    VideoRecommendations,
     VideoView,
 )
 from app.videos.storage import media_path
@@ -101,6 +102,21 @@ def update(
     request: Request, video_id: UUID, data: VideoPatch, user: Mutator
 ) -> VideoView:
     return service.patch_video(request.app.state.engine, video_id, user.id, data)
+
+
+@router.get("/{video_id}/recommendations", response_model=VideoRecommendations)
+def recommendations(
+    request: Request,
+    video_id: UUID,
+    state: Reader,
+    limit: int = Query(default=12, ge=1, le=20),
+) -> VideoRecommendations:
+    return service.recommendations(
+        request.app.state.engine,
+        video_id,
+        state.user.id if state and state.user else None,
+        limit,
+    )
 
 
 @router.delete("/{video_id}", status_code=204)

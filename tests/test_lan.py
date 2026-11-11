@@ -4,7 +4,7 @@ import json
 import os
 import runpy
 from copy import deepcopy
-from ipaddress import IPv4Interface, ip_interface
+from ipaddress import IPv4Interface, IPv4Network, ip_interface
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -643,5 +643,294 @@ def test_duplicate_nft_rule_ownership_markers_are_rejected(
     duplicate = deepcopy(owned_nft_table["nftables"][-1])
     duplicate["rule"]["handle"] = 16
     owned_nft_table["nftables"].append(duplicate)
+    with pytest.raises(ValueError):
+        lan.validate_owned_table(owned_nft_table)
+
+
+@pytest.mark.parametrize("kind", ["chain", "set", "map", "counter", "quota"])
+def test_owned_nft_table_preserves_foreign_objects(
+    lan: SimpleNamespace, owned_nft_table: dict, kind: str
+) -> None:
+    foreign = {"family": "inet", "table": lan.TABLE, "name": "administrator_object"}
+    owned_nft_table["nftables"].append({kind: foreign})
+    before = deepcopy(owned_nft_table)
+    with pytest.raises(ValueError):
+        lan.validate_owned_table(owned_nft_table)
+    assert owned_nft_table == before
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("hook", "input"), ("prio", 0), ("policy", "drop"), ("family", "ip")],
+)
+def test_owned_nft_table_preserves_changed_chain_policy(
+    lan: SimpleNamespace, owned_nft_table: dict, field: str, value: str | int
+) -> None:
+    owned_nft_table["nftables"][2]["chain"][field] = value
+    with pytest.raises(ValueError):
+        lan.validate_owned_table(owned_nft_table)
+
+
+def test_wildcard_listening_does_not_implicitly_allow_any_source(
+    lan: SimpleNamespace,
+) -> None:
+    updated, port = lan.prepare_env(_env(), ADDRESS, listen_all=True)
+    assert port == 8080
+    assert "FOXTUBE_BIND=0.0.0.0\n" in updated
+    assert f"FOXTUBE_PUBLIC_ORIGIN=http://{ADDRESS.ip}:8080\n" in updated
+    assert lan.resolve_policy(updated) == (True, (), False)
+    assert lan.prepare_env(updated, ADDRESS) == (updated, port)
+
+
+def test_explicit_any_source_is_preserved_on_unattended_repeat(
+    lan: SimpleNamespace,
+) -> None:
+    updated, port = lan.prepare_env(
+        _env(str(ADDRESS.ip), origin=f"http://{ADDRESS.ip}:8080"),
+        ADDRESS,
+        listen_all=True,
+        allow_any_source=True,
+    )
+    assert lan.resolve_policy(updated) == (True, (), True)
+    assert lan.prepare_env(updated, ADDRESS) == (updated, port)
+    assert "POSTGRES_PASSWORD=synthetic-fixture-only\n" in updated
+    assert "UNRELATED_VALUE=literal-$()-not-a-command\n" in updated
+
+
+def test_explicit_extra_sources_are_normalized_and_persisted(
+    lan: SimpleNamespace,
+) -> None:
+    updated, port = lan.prepare_env(
+        _env(),
+        ADDRESS,
+        listen_all=True,
+        allowed_subnets=["10.8.0.62/32", "172.20.0.0/16", "10.8.0.62/32"],
+    )
+    assert lan.resolve_policy(updated) == (
+        True,
+        (IPv4Network("10.8.0.62/32"), IPv4Network("172.20.0.0/16")),
+        False,
+    )
+    assert lan.prepare_env(updated, ADDRESS) == (updated, port)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "0.0.0.0/0",
+        "0.0.0.0",
+        "10.8.0.62",
+        "10.0.0.0/255.0.0.0",
+        "8.8.8.8/32",
+        "100.64.0.0/10",
+        "192.168.0.0/15",
+        "10.8.0.62/24",
+        "::/0",
+        "127.0.0.0/8",
+        "10.8.0.0/24; flush ruleset",
+        "10.8.0.0/24\nFOXTUBE_BIND=0.0.0.0",
+        "",
+    ],
+)
+def test_extra_sources_cannot_broaden_to_public_or_inject_rules(
+    lan: SimpleNamespace, source: str
+) -> None:
+    with pytest.raises(ValueError):
+        lan.prepare_env(_env(), ADDRESS, allowed_subnets=[source])
+
+
+@pytest.mark.parametrize(
+    "policy_key", ["FOXTUBE_LAN_LISTEN_ALL", "FOXTUBE_LAN_ALLOW_ANY_SOURCE"]
+)
+@pytest.mark.parametrize("value", ["yes", "1", "TRUE", "", "false; true"])
+def test_persisted_flags_require_exact_boolean_values(
+    lan: SimpleNamespace, policy_key: str, value: str
+) -> None:
+    with pytest.raises(ValueError):
+        lan.prepare_env(_env() + f"{policy_key}={value}\n", ADDRESS)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "FOXTUBE_LAN_LISTEN_ALL",
+        "FOXTUBE_LAN_ALLOW_SUBNETS",
+        "FOXTUBE_LAN_ALLOW_ANY_SOURCE",
+    ],
+)
+def test_duplicate_policy_keys_are_rejected(lan: SimpleNamespace, key: str) -> None:
+    with pytest.raises(ValueError):
+        lan.prepare_env(_env() + f"{key}=false\n{key}=false\n", ADDRESS)
+
+
+def test_policy_refuses_unbounded_source_list(lan: SimpleNamespace) -> None:
+    with pytest.raises(ValueError):
+        lan.prepare_env(
+            _env(), ADDRESS, allowed_subnets=[f"10.8.0.{i}/32" for i in range(17)]
+        )
+
+
+def test_any_source_and_allowlist_are_mutually_exclusive(
+    lan: SimpleNamespace,
+) -> None:
+    with pytest.raises(ValueError):
+        lan.prepare_env(
+            _env(),
+            ADDRESS,
+            allowed_subnets=["10.8.0.62/32"],
+            allow_any_source=True,
+        )
+
+
+def test_any_source_clears_previous_extra_source_policy(lan: SimpleNamespace) -> None:
+    restricted, _ = lan.prepare_env(_env(), ADDRESS, allowed_subnets=["10.8.0.62/32"])
+    unrestricted, _ = lan.prepare_env(restricted, ADDRESS, allow_any_source=True)
+    assert lan.resolve_policy(unrestricted) == (False, (), True)
+
+
+def test_wildcard_compose_requires_explicit_policy_and_keeps_canonical_origin(
+    lan: SimpleNamespace, compose_config: dict
+) -> None:
+    mapping = compose_config["services"]["nginx"]["ports"][0]
+    mapping["host_ip"] = "0.0.0.0"
+    assert lan.validate_compose(compose_config, ADDRESS, 8080, True) is None
+    with pytest.raises(ValueError):
+        lan.validate_compose(compose_config, ADDRESS, 8080)
+    compose_config["services"]["api"]["environment"]["FOXTUBE_PUBLIC_ORIGIN"] = (
+        "http://0.0.0.0:8080"
+    )
+    with pytest.raises(ValueError):
+        lan.validate_compose(compose_config, ADDRESS, 8080, True)
+
+
+@pytest.mark.parametrize("host_ip", ["::", "", "192.168.50.20"])
+def test_wildcard_policy_does_not_permit_other_bindings(
+    lan: SimpleNamespace, compose_config: dict, host_ip: str
+) -> None:
+    compose_config["services"]["nginx"]["ports"][0]["host_ip"] = host_ip
+    with pytest.raises(ValueError):
+        lan.validate_compose(compose_config, ADDRESS, 8080, True)
+
+
+@pytest.mark.parametrize("current_bind", [str(ADDRESS.ip), "::", "192.168.50.99"])
+def test_wildcard_migration_requires_stopping_previous_lan_listener(
+    lan: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, current_bind: str
+) -> None:
+    _mock_run(
+        lan,
+        monkeypatch,
+        _listener_responses("", [{"HostIp": current_bind, "HostPort": "8080"}]),
+    )
+    with pytest.raises(ValueError):
+        lan.validate_listener(ADDRESS, 8080, True)
+
+
+def test_wildcard_repeat_accepts_own_ipv4_wildcard_listener(
+    lan: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _mock_run(
+        lan,
+        monkeypatch,
+        _listener_responses(
+            _ss_listener("0.0.0.0", 8080, "docker-proxy"),
+            [{"HostIp": "0.0.0.0", "HostPort": "8080"}],
+        ),
+    )
+    assert lan.validate_listener(ADDRESS, 8080, True) is None
+
+
+@pytest.mark.parametrize("mss", ["536", "1200", "1460"])
+def test_tcp_mss_opt_in_persists_without_changing_network_policy(
+    lan: SimpleNamespace, mss: str
+) -> None:
+    wildcard, _ = lan.prepare_env(
+        _env(), ADDRESS, listen_all=True, allow_any_source=True
+    )
+    updated, port = lan.prepare_env(wildcard, ADDRESS, tcp_mss=mss)
+    assert lan.resolve_tcp_mss(updated) == int(mss)
+    assert lan.resolve_policy(updated) == (True, (), True)
+    assert lan.prepare_env(updated, ADDRESS) == (updated, port)
+    changed, _ = lan.prepare_env(updated, ADDRESS, tcp_mss="1000")
+    assert lan.resolve_tcp_mss(changed) == 1000
+
+
+def test_tcp_mss_is_disabled_by_default_and_can_be_cleared(
+    lan: SimpleNamespace,
+) -> None:
+    assert lan.resolve_tcp_mss(_env()) is None
+    updated, _ = lan.prepare_env(_env(), ADDRESS, tcp_mss="1200")
+    cleared = updated.replace("FOXTUBE_LAN_TCP_MSS=1200", "FOXTUBE_LAN_TCP_MSS=")
+    assert lan.resolve_tcp_mss(cleared) is None
+    assert lan.prepare_env(cleared, ADDRESS) == (cleared, 8080)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["535", "1461", "0", "-1200", "01200", "1200.0", "1200 ", "1200; flush ruleset"],
+)
+@pytest.mark.parametrize("persisted", [False, True])
+def test_tcp_mss_rejects_out_of_range_noninteger_and_injection(
+    lan: SimpleNamespace, value: str, persisted: bool
+) -> None:
+    original = _env() + (f"FOXTUBE_LAN_TCP_MSS={value}\n" if persisted else "")
+    with pytest.raises(ValueError):
+        lan.prepare_env(original, ADDRESS, tcp_mss=None if persisted else value)
+
+
+def test_tcp_mss_refuses_explicit_empty_and_duplicate_settings(
+    lan: SimpleNamespace,
+) -> None:
+    with pytest.raises(ValueError):
+        lan.prepare_env(_env(), ADDRESS, tcp_mss="")
+    with pytest.raises(ValueError):
+        lan.prepare_env(
+            _env() + "FOXTUBE_LAN_TCP_MSS=1200\nFOXTUBE_LAN_TCP_MSS=1200\n", ADDRESS
+        )
+
+
+@pytest.mark.parametrize("marked_reply", [False, True])
+@pytest.mark.parametrize("with_mss", [False, True])
+def test_owned_table_accepts_exact_legacy_reply_and_managed_mss_rule(
+    lan: SimpleNamespace, owned_nft_table: dict, marked_reply: bool, with_mss: bool
+) -> None:
+    reply = {
+        "family": "inet",
+        "table": lan.TABLE,
+        "chain": "ingress",
+        "expr": [
+            {
+                "match": {
+                    "op": "==",
+                    "left": {"ct": {"key": "direction"}},
+                    "right": "reply",
+                }
+            },
+            {"return": None},
+        ],
+    }
+    if marked_reply:
+        reply["comment"] = lan.MARKER
+    owned_nft_table["nftables"].append({"rule": reply})
+    if with_mss:
+        mss = deepcopy(owned_nft_table["nftables"][-2]["rule"])
+        mss["chain"] = "tcp_mss"
+        owned_nft_table["nftables"].append({"rule": mss})
+        chain = deepcopy(owned_nft_table["nftables"][2]["chain"])
+        chain.update(name="tcp_mss", prio=-150)
+        owned_nft_table["nftables"].append({"chain": chain})
+    assert lan.validate_owned_table(owned_nft_table) is None
+
+
+@pytest.mark.parametrize("chain", ["ingress", "tcp_mss", "foreign"])
+@pytest.mark.parametrize("comment", [None, "another administrator"])
+def test_owned_table_preserves_foreign_rules_including_mss_chain(
+    lan: SimpleNamespace, owned_nft_table: dict, chain: str, comment: str | None
+) -> None:
+    foreign = deepcopy(owned_nft_table["nftables"][-1]["rule"])
+    foreign["chain"] = chain
+    foreign.pop("comment")
+    if comment is not None:
+        foreign["comment"] = comment
+    owned_nft_table["nftables"].append({"rule": foreign})
     with pytest.raises(ValueError):
         lan.validate_owned_table(owned_nft_table)

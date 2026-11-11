@@ -53,5 +53,5 @@
   <span>Страница {{ reports.page }}</span>
   {% if reports.page * reports.page_size < reports.total %}<a class="secondary-button" href="/moderation?closed={{ 'true' if closed else 'false' }}&amp;page={{ reports.page + 1 }}">Далее</a>{% endif %}
 </nav>
-<script src="/static/moderation.js" defer></script>
+
 {% endblock %}

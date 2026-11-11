@@ -10,6 +10,7 @@
       {% if video.poster_url %}<img src="{{ video.poster_url }}" alt="" loading="lazy" width="640" height="360">{% elif video.status in ['QUEUED', 'PROCESSING'] %}<span class="fox-loader fox-loader-pulse thumbnail-loader" aria-hidden="true"></span>{% else %}<span class="thumbnail-placeholder" aria-hidden="true">▶</span>{% endif %}
       {% if video.duration %}<span class="video-duration">{{ (video.duration // 60) | int }}:{{ '%02d' | format((video.duration % 60) | int) }}</span>{% endif %}
     </a>
+    {% if video.playback_url %}<button class="thumbnail-mini-button" type="button" hidden data-preview-mini="{{ video.id }}" aria-label="Открыть в миниплеере: {{ video.title }}" title="Открыть в миниплеере"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM12 11h7v6h-7z"/></svg></button>{% endif %}
     <div class="video-card-info">
       <a class="channel-avatar video-card-avatar" href="/channels/{{ video.channel_id }}" aria-label="Канал: {{ video.channel_name }}">{{ video.channel_name[:1] | upper }}</a>
       <div class="video-card-details">

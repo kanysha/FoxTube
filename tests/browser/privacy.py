@@ -116,26 +116,26 @@ def check_lists(
 
 
 def play_and_seek(page: Page) -> dict[str, float]:
-    player = page.locator("video")
+    player = page.locator("[data-fox-player] video")
     expect(player).to_be_visible()
     page.wait_for_function(
         """() => {
-          const video = document.querySelector('video');
+          const video = document.querySelector('[data-fox-player] video');
           return video && video.readyState >= 2 && !video.error;
         }""",
         timeout=30000,
     )
     # A real gesture permits unmuted playback in a fresh recipient context.
-    player.click(position={"x": 10, "y": 10})
-    player.evaluate("video => video.play()")
+    page.locator("[data-fox-center]").click()
     page.wait_for_function(
-        "() => document.querySelector('video').currentTime > 1", timeout=20000
+        "() => document.querySelector('[data-fox-player] video').currentTime > 1",
+        timeout=20000,
     )
     playing = player.evaluate("video => video.currentTime")
     player.evaluate("video => { video.pause(); video.currentTime = 7; }")
     page.wait_for_function(
         """() => {
-          const video = document.querySelector('video');
+          const video = document.querySelector('[data-fox-player] video');
           return !video.seeking && video.readyState >= 2 &&
             Math.abs(video.currentTime - 7) < 0.6 && !video.error;
         }""",
@@ -143,7 +143,8 @@ def play_and_seek(page: Page) -> dict[str, float]:
     )
     player.evaluate("video => video.play()")
     page.wait_for_function(
-        "() => document.querySelector('video').currentTime > 8", timeout=20000
+        "() => document.querySelector('[data-fox-player] video').currentTime > 8",
+        timeout=20000,
     )
     after_seek = player.evaluate("video => video.currentTime")
     player.evaluate("video => video.pause()")
@@ -207,7 +208,7 @@ def check_privacy(
         expect(link).to_be_visible(timeout=120000)
         link.click()
         owner.wait_for_url(base_url + watch_path)
-        expect(owner.locator(".privacy-badge")).to_have_text("Приватное")
+        expect(owner.locator(".watch-heading .privacy-badge")).to_have_text("Приватное")
         expect(owner.locator("[data-grants-empty]")).to_have_text(
             "Разрешения пока не выданы."
         )
@@ -264,6 +265,26 @@ def check_privacy(
         grants.dispose()
         playback = play_and_seek(first)
         capture(first, artifacts / "private-viewer-desktop.png")
+        # Pin a real granted private video and retain its decoder across server pages.
+        first.locator("[data-fox-player] video").evaluate(
+            "video => { window.__privateMini = {video, document}; }"
+        )
+        first.locator("[data-fox-mini]").click()
+        first.locator('.brand[href="/"]').click()
+        first.wait_for_url(base_url + "/")
+        expect(first.locator("[data-miniplayer]")).to_be_visible()
+        first.locator("[data-mini-restore]").click()
+        first.wait_for_url(base_url + watch_path)
+        expect(first.locator("#main-content [data-fox-player] video")).to_be_visible()
+        require(
+            first.evaluate(
+                "() => window.__privateMini.document === document && "
+                "document.querySelector('[data-fox-player] video') "
+                "=== window.__privateMini.video"
+            ),
+            "Private mini navigation replaced the video",
+        )
+        first.locator("[data-fox-mini]").click()
         capture(owner, artifacts / "private-owner-desktop.png")
         owner.set_viewport_size({"width": 390, "height": 844})
         owner.wait_for_function(
@@ -285,6 +306,21 @@ def check_privacy(
         expect(owner.locator("[data-grants-list] li")).to_have_count(1)
         expect(owner.locator("[data-grants-list]")).not_to_contain_text(first_email)
         expect(owner.locator("[data-grants-list]")).to_contain_text(second_email)
+        # The next internal transition rechecks the grant and releases buffered media.
+        first.locator('.brand[href="/"]').click()
+        first.wait_for_url(base_url + "/")
+        expect(first.locator("[data-miniplayer]")).to_be_hidden()
+        expect(first.locator("[data-mini-title]")).to_have_text("")
+        first.wait_for_function(
+            "() => window.__privateMini.video.paused && "
+            "!window.__privateMini.video.isConnected && "
+            "window.__privateMini.video.readyState === 0 && "
+            "window.__privateMini.video.networkState === 0 && "
+            "window.__privateMini.video.buffered.length === 0 && "
+            "!window.__privateMini.video.getAttribute('src') && "
+            "!window.__privateMini.video.getAttribute('poster') && "
+            "!window.__privateMini.video.querySelector('source,track')"
+        )
         # Buffered bytes in the already-open player cannot be recalled. These
         # checks always issue new requests after the revoke has completed.
         for page, allowed in ((first, False), (second, True)):
@@ -322,6 +358,10 @@ def check_privacy(
                 "first recipient denied new requests; second still plays and seeks"
             ),
             "remaining_recipient_playback": remaining_playback,
+            "miniplayer_revocation": (
+                "same private decoder across home/restore; next navigation after "
+                "revoke closes mini and clears source, tracks and title"
+            ),
             "viewports": ["1440x900", "390x844"],
         }
     finally:

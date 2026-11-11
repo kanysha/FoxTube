@@ -212,12 +212,14 @@ def check_lifecycle(
 
         report["phase"] = "edit_private"
         edit("private")
-        expect(owner_page.locator(".privacy-badge")).to_have_text("Приватное")
+        expect(owner_page.locator(".watch-heading .privacy-badge")).to_have_text(
+            "Приватное"
+        )
         check_media(owner_page.context, base_url, video_id, allowed=True)
         check_media(guest, base_url, video_id, allowed=False)
         report["phase"] = "edit_public"
         edit("public")
-        expect(owner_page.locator(".privacy-badge")).to_have_count(0)
+        expect(owner_page.locator(".watch-heading .privacy-badge")).to_have_count(0)
         check_media(guest, base_url, video_id, allowed=True)
         capture(owner_page, artifacts / "lifecycle-video-edited-desktop.png")
         mobile(owner_page)
@@ -321,9 +323,9 @@ def check_lifecycle(
         owner_page.goto(base_url + watch_path)
         expect(owner_page.get_by_role("heading", level=1)).to_have_text(title)
         owner_page.wait_for_function(
-            "() => document.querySelector('video')?.readyState >= 2"
+            "() => document.querySelector('[data-fox-player] video')?.readyState >= 2"
         )
-        owner_page.locator("video").evaluate("video => video.pause()")
+        owner_page.locator("[data-fox-player] video").evaluate("video => video.pause()")
         owner_page.once("dialog", lambda dialog: dialog.accept())
         owner_page.locator("[data-video-delete]").click()
         owner_page.wait_for_url(base_url + "/studio")

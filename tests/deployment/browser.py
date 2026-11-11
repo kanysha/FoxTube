@@ -125,7 +125,7 @@ def check_private(
         video_id = video["id"]
         progress["video_id"] = video_id
         watch_path = f"/watch/{video_id}"
-        expect(owner.locator(".privacy-badge")).to_have_text("Приватное")
+        expect(owner.locator(".watch-heading .privacy-badge")).to_have_text("Приватное")
         expect(owner.locator("[data-grants-empty]")).to_have_text(
             "Разрешения пока не выданы."
         )
@@ -284,7 +284,9 @@ def main() -> int:
                     report["video_id"] = video["id"]
                     report["phase"] = "public_playback"
                     report["playback"] = play_and_seek(page)
-                    duration = page.locator("video").evaluate("video => video.duration")
+                    duration = page.locator("[data-fox-player] video").evaluate(
+                        "video => video.duration"
+                    )
                     require(9.5 <= duration <= 10.5, "Wrong deployment video duration")
                     report["duration"] = duration
                     report["phase"] = "social"
@@ -294,7 +296,7 @@ def main() -> int:
                     assert_no_overflow(page)
                     capture(page, artifacts / "watch-desktop.png")
                     mobile(page)
-                    player_box = page.locator("video").bounding_box()
+                    player_box = page.locator("[data-fox-player] video").bounding_box()
                     require(
                         player_box is not None and player_box["width"] >= 388,
                         "Deployment mobile player is narrower than the viewport",

@@ -5,15 +5,18 @@ import os
 import secrets
 import subprocess
 import tempfile
+import traceback
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 from uuid import uuid4
 
+from experience import check_experience
 from lifecycle import check_lifecycle
-from player import check_player
+from miniplayer import check_miniplayer, remember_video, same_video
+from player import check_player, ready
 from player_extended import check_player_extended
-from playwright.sync_api import Page, expect, sync_playwright
+from playwright.sync_api import Browser, Page, expect, sync_playwright
 from privacy import check_privacy
 from staff import check_moderation
 from swagger import check_swagger_upload
@@ -85,6 +88,76 @@ def assert_no_overflow(page: Page) -> None:
         ),
         "Page has horizontal overflow at the tested viewport",
     )
+
+
+def check_auth_forms(browser: Browser, base_url: str) -> dict[str, str]:
+    """Submit real forms left open while another tab rotates the session."""
+    context = browser.new_context(locale="ru-RU")
+    try:
+        stale = context.new_page()
+        other = context.new_page()
+        for page in (stale, other):
+            page.set_default_timeout(15000)
+            page.goto(base_url + "/register")
+
+        def register(page: Page) -> tuple[str, str]:
+            email = f"auth-tabs-{uuid4().hex}@example.com"
+            password = secrets.token_urlsafe(32)
+            page.get_by_label("Имя", exact=True).fill("Проверка вкладок")
+            page.get_by_label("Email", exact=True).fill(email)
+            page.get_by_label("Пароль", exact=True).fill(password)
+            requests: list[str] = []
+
+            def record(request: Any) -> None:
+                if "/api/v1/auth/" in request.url:
+                    requests.append(request.method + " " + urlsplit(request.url).path)
+
+            page.on("request", record)
+            page.get_by_role("button", name="Создать аккаунт", exact=True).click()
+            page.wait_for_url(base_url + "/account")
+            page.remove_listener("request", record)
+            require(
+                requests == ["GET /api/v1/auth/session", "POST /api/v1/auth/register"],
+                "Registration must refresh the session and submit exactly once",
+            )
+            return email, password
+
+        register(other)
+        other.locator('form[data-auth-form="logout"] button').click()
+        other.wait_for_url(base_url + "/")
+        # The first tab still contains the anonymous token from before login/logout.
+        email, password = register(stale)
+        stale.locator('form[data-auth-form="logout"] button').click()
+        stale.wait_for_url(base_url + "/")
+        for page in (stale, other):
+            page.goto(base_url + "/login")
+
+        def login(page: Page) -> None:
+            page.get_by_label("Email", exact=True).fill(email)
+            page.get_by_label("Пароль", exact=True).fill(password)
+            requests: list[str] = []
+
+            def record(request: Any) -> None:
+                if "/api/v1/auth/" in request.url:
+                    requests.append(request.method + " " + urlsplit(request.url).path)
+
+            page.on("request", record)
+            page.get_by_role("button", name="Войти", exact=True).click()
+            page.wait_for_url(base_url + "/account")
+            page.remove_listener("request", record)
+            require(
+                requests == ["GET /api/v1/auth/session", "POST /api/v1/auth/login"],
+                "Login must refresh the session and submit exactly once",
+            )
+
+        login(other)
+        login(stale)
+        return {
+            "registration_after_rotation": "passed",
+            "login_after_rotation": "passed",
+        }
+    finally:
+        context.close()
 
 
 def check_social(page: Page, base_url: str, watch_path: str) -> dict[str, Any]:
@@ -179,6 +252,7 @@ def main() -> None:
 
             page.on("response", record_playback)
             try:
+                report["auth_forms"] = check_auth_forms(browser, base_url)
                 page.goto(f"{base_url}/register")
                 page.get_by_label("Имя", exact=True).fill("Автор проверки видео")
                 owner_email = f"video-e2e-{uuid4().hex}@example.com"
@@ -276,6 +350,19 @@ def main() -> None:
                 report["extended_player"] = check_player_extended(
                     browser, page, base_url, watch_path, artifacts, errors
                 )
+                report["experience"] = check_experience(
+                    browser, page, base_url, watch_path, source, artifacts, errors
+                )
+                report["miniplayer"] = check_miniplayer(
+                    browser,
+                    page,
+                    base_url,
+                    watch_path,
+                    artifacts,
+                    errors,
+                    owner_email,
+                    owner_password,
+                )
                 report["social"] = check_social(page, base_url, watch_path)
                 player = page.locator("video")
                 assert_no_overflow(page)
@@ -336,6 +423,19 @@ def main() -> None:
                         viewer.locator(f'a[href="{watch_path}"]').first
                     ).to_be_visible()
                     viewer.goto(base_url + watch_path)
+                    ready(viewer)
+                    remember_video(viewer)
+                    viewer.locator("[data-fox-mini]").click()
+                    viewer.locator('.brand[href="/"]').click()
+                    viewer.wait_for_url(base_url + "/")
+                    expect(viewer.locator("#page-title")).to_have_text("Главная")
+                    same_video(viewer)
+                    viewer.locator(f'.video-card h2 a[href="{watch_path}"]').click()
+                    viewer.wait_for_url(base_url + watch_path)
+                    expect(
+                        viewer.locator("#main-content [data-fox-player]")
+                    ).to_be_visible()
+                    same_video(viewer)
                     viewer.locator("details.video-report summary").click()
                     viewer.get_by_label("Причина жалобы").fill(
                         "Реальная жалоба из браузерной проверки."
@@ -348,7 +448,7 @@ def main() -> None:
                     ).to_contain_text("Жалоба")
                     report["subscriptions_and_report"] = "persisted through UI"
                     report["staff"] = check_moderation(
-                        browser, base_url, video_id, viewer, viewer_email, errors
+                        browser, base_url, video_id, viewer, viewer_email, errors, page
                     )
                     viewer.goto(f"{base_url}/channels/{created_video['channel_id']}")
                     subscription = viewer.locator("[data-channel-subscription] button")
@@ -427,6 +527,14 @@ def main() -> None:
             except BaseException as error:
                 report["status"] = "failed"
                 report["failure_type"] = type(error).__name__
+                report["failure_location"] = [
+                    {
+                        "file": Path(frame.filename).name,
+                        "line": frame.lineno,
+                        "function": frame.name,
+                    }
+                    for frame in traceback.extract_tb(error.__traceback__)
+                ]
                 # No request/response dumps or browser storage: they contain secrets.
                 try:
                     page.screenshot(

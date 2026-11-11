@@ -1,3 +1,4 @@
+import re
 import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -5,7 +6,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import Engine, and_, exists, func, or_, select, text
+from sqlalchemy import Engine, and_, case, exists, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
@@ -19,6 +20,7 @@ from app.videos.schemas import (
     VideoInput,
     VideoPage,
     VideoPatch,
+    VideoRecommendations,
     VideoView,
 )
 
@@ -136,6 +138,60 @@ def get_video(engine: Engine, video_id: UUID, viewer_id: UUID | None) -> VideoVi
         if row is None:
             raise HTTPException(404, "Видео недоступно.")
         return view(row[0], row[1], viewer_id)
+
+
+def recommendations(
+    engine: Engine, video_id: UUID, viewer_id: UUID | None, limit: int = 12
+) -> VideoRecommendations:
+    """Rank accessible videos by topic and channel, with recent videos as fallback."""
+    seed = get_video(engine, video_id, viewer_id)
+    if not seed.playback_url:
+        return VideoRecommendations(items=[])
+    # Bound query complexity independently of a long description. Tokens contain
+    # letters/digits only, so LIKE wildcards cannot be introduced by metadata.
+    stop_words = {
+        "это",
+        "как",
+        "для",
+        "или",
+        "что",
+        "при",
+        "без",
+        "все",
+        "так",
+        "его",
+        "the",
+        "and",
+        "for",
+        "with",
+        "this",
+        "that",
+        "from",
+        "video",
+        "видео",
+    }
+    tokens = list(
+        dict.fromkeys(
+            word
+            for word in re.findall(
+                r"[^\W_]{3,}", f"{seed.title} {seed.description[:1000]}".casefold()
+            )
+            if word not in stop_words
+        )
+    )[:10]
+    score: ColumnElement[int] = case((Video.owner_id == seed.owner_id, 2), else_=0)
+    for token in tokens:
+        score = score + case((Video.title.ilike(f"%{token}%"), 4), else_=0)
+        score = score + case((Video.description.ilike(f"%{token}%"), 1), else_=0)
+    with Session(engine) as session:
+        rows = session.execute(
+            select(Video, Channel)
+            .join(Channel, Channel.user_id == Video.owner_id)
+            .where(readable(viewer_id), Video.id != video_id)
+            .order_by(score.desc(), Video.created_at.desc(), Video.id.desc())
+            .limit(max(1, min(limit, 20)))
+        ).all()
+        return VideoRecommendations(items=[view(v, c, viewer_id) for v, c in rows])
 
 
 def media_key(

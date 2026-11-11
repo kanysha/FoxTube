@@ -1,0 +1,7 @@
+{% macro empty_icon(kind='video') -%}
+<span class="empty-symbol" aria-hidden="true"><svg viewBox="0 0 32 32">
+  {% if kind == 'playlist' %}<path d="M5 8h19M5 14h19M5 20h10m5-1 8 5-8 5z"/>
+  {% elif kind == 'subscriptions' %}<rect x="5" y="10" width="22" height="17" rx="4"/><path d="M9 5h14m-9 11 7 4-7 4z"/>
+  {% else %}<rect x="4" y="6" width="24" height="20" rx="5"/><path d="m13 11 8 5-8 5z"/>{% endif %}
+</svg></span>
+{%- endmacro %}

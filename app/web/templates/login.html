@@ -1,21 +1,25 @@
 {% extends "base.html" %}
+{% from "auth_parts.html" import field_icon, password_toggle, auth_art %}
 {% block content %}
 <section class="auth-layout" aria-labelledby="auth-title">
   <div class="auth-intro">
     <p class="eyebrow">Ваш FoxTube</p>
     <h1 id="auth-title">С возвращением</h1>
-    <p class="auth-description">Войдите в свой аккаунт, чтобы продолжить.</p>
+    <p class="auth-description">Любимые каналы, ваши видео и истории, к которым хочется возвращаться.</p>
+    {{ auth_art() }}
   </div>
   <div class="auth-card">
+    <span class="auth-card-kicker">Рады видеть вас снова</span>
     <h2>Вход в аккаунт</h2>
+    <p class="auth-card-description">Продолжим с того, что вам нравится.</p>
     <form class="auth-form" action="/api/v1/auth/login" method="post" data-auth-form="login" novalidate>
       <div class="form-field">
         <label for="login-email">Email</label>
-        <input id="login-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required>
+        <div class="input-wrap">{{ field_icon('email') }}<input id="login-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" placeholder="you@example.com" required></div>
       </div>
       <div class="form-field">
         <label for="login-password">Пароль</label>
-        <input id="login-password" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required>
+        <div class="input-wrap input-wrap-password">{{ field_icon('password') }}<input id="login-password" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" placeholder="Введите пароль" required>{{ password_toggle('login-password') }}</div>
       </div>
       <p class="form-message" data-auth-error role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></p>
       <button class="primary-button" type="submit" data-pending-label="Входим…">Войти</button>

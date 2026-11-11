@@ -4,8 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#faf9f6">
     {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
+    <meta name="foxtube-viewer" content="{{ viewer.id if viewer else 'anonymous' }}">
+    <meta name="foxtube-shell" content="miniplayer-v1">
     <title>{{ page_title }} · FoxTube</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/app.css">
@@ -13,13 +15,17 @@
     <link rel="stylesheet" href="/static/social.css">
     <link rel="stylesheet" href="/static/loading.css">
     <link rel="stylesheet" href="/static/player.css">
+    <link rel="stylesheet" href="/static/recommendations.css">
     <script src="/static/app.js" defer></script>
     <script src="/static/loading.js" defer></script>
     <script src="/static/auth.js" defer></script>
     <script src="/static/video.js" defer></script>
     <script src="/static/social.js" defer></script>
+    <script src="/static/moderation.js" defer></script>
     <script src="/static/player.js" defer></script>
     <script src="/static/previews.js" defer></script>
+    <script src="/static/miniplayer.js" defer></script>
+    <script src="/static/recommendations.js" defer></script>
   </head>
   <body class="app-shell">
     <div class="navigation-loading" data-navigation-loading role="status" hidden><span class="fox-loader fox-loader-orbit" aria-hidden="true"></span><span>Открываем страницу…</span></div>
@@ -113,5 +119,19 @@
     <main class="main-content" id="main-content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
+    <aside class="mini-player" data-miniplayer aria-label="Миниплеер" hidden>
+      <div class="mini-player-heading">
+        <a data-mini-title class="mini-player-title" href="/">Вернуться к видео</a>
+        <button type="button" data-mini-restore data-mini-expand class="mini-player-action" aria-label="Вернуться к основному плееру" title="Развернуть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-9 9M10 3H3v18h18v-7"/></svg></button>
+        <button type="button" data-mini-close class="mini-player-action" aria-label="Закрыть миниплеер" title="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+      </div>
+      <div data-mini-mount></div>
+    </aside>
+    <p class="mini-navigation-error" data-mini-notice role="status" hidden></p>
+    <template data-mini-template>
+      {% with video={'id': 'mini', 'title': 'Видео', 'playback_url': '', 'poster_url': none} %}
+      {% include 'player.html' %}
+      {% endwith %}
+    </template>
   </body>
 </html>

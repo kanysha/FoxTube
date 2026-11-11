@@ -7,18 +7,44 @@ cd -- "$project_root"
 with_demo=false
 with_lan=true
 lan_ip=''
+listen_all=false
+allow_any_source=false
+allowed_subnets=()
+tcp_mss=''
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --help)
-            printf '%s\n' 'Usage: bash scripts/bootstrap.sh [--demo] [--no-lan | --lan-ip ADDRESS]' \
+            printf '%s\n' 'Usage: bash scripts/bootstrap.sh [--demo] [--no-lan | --lan-ip ADDRESS] [--listen-all] [--allow-subnet CIDR | --allow-any-source] [--tcp-mss BYTES]' \
                 'On clean Ubuntu 22.04/24.04: sudo bash scripts/bootstrap.sh' \
                 'Root Ubuntu installs publish only Nginx to the connected private LAN.' \
                 '--no-lan skips automatic networking; it does not remove existing rules.' \
+                '--listen-all binds all IPv4 interfaces, keeping source restrictions.' \
+                '--allow-subnet adds a private source CIDR; repeat for more sources.' \
+                '--allow-any-source explicitly permits any IPv4 source; HTTP remains unencrypted.' \
+                '--tcp-mss optionally clamps web IPv4 SYN MSS to 536..1460 for broken PMTU paths.' \
                 'Passwords and persistent volumes are preserved.'
             exit 0
             ;;
         --demo) with_demo=true; shift ;;
         --no-lan) with_lan=false; shift ;;
+        --listen-all) listen_all=true; shift ;;
+        --allow-any-source) allow_any_source=true; shift ;;
+        --tcp-mss)
+            if [[ $# -lt 2 || ! $2 =~ ^[1-9][0-9]{2,3}$ ]] || (( 10#$2 < 536 || 10#$2 > 1460 )); then
+                printf '%s\n' '--tcp-mss requires an integer between 536 and 1460 bytes.' >&2
+                exit 2
+            fi
+            tcp_mss=$2
+            shift 2
+            ;;
+        --allow-subnet)
+            if [[ $# -lt 2 || -z $2 || $2 == --* ]]; then
+                printf '%s\n' '--allow-subnet requires a private IPv4 CIDR.' >&2
+                exit 2
+            fi
+            allowed_subnets+=("$2")
+            shift 2
+            ;;
         --lan-ip)
             if [[ $# -lt 2 || -z $2 ]]; then
                 printf '%s\n' '--lan-ip requires an assigned private IPv4 address.' >&2
@@ -30,8 +56,12 @@ while [[ $# -gt 0 ]]; do
         *) printf '%s\n' 'Unsupported option. Use --help.' >&2; exit 2 ;;
     esac
 done
-if [[ $with_lan == false && -n $lan_ip ]]; then
-    printf '%s\n' '--no-lan and --lan-ip cannot be combined.' >&2
+if [[ $with_lan == false && ( -n $lan_ip || $listen_all == true || $allow_any_source == true || ${#allowed_subnets[@]} -gt 0 || -n $tcp_mss ) ]]; then
+    printf '%s\n' '--no-lan cannot be combined with managed network options.' >&2
+    exit 2
+fi
+if [[ $allow_any_source == true && ${#allowed_subnets[@]} -gt 0 ]]; then
+    printf '%s\n' '--allow-any-source and --allow-subnet cannot be combined.' >&2
     exit 2
 fi
 
@@ -180,12 +210,24 @@ if [[ $with_lan == true && $(uname -s) == Linux && -r /etc/os-release ]]; then
         if [[ -n $lan_ip ]]; then
             lan_arguments+=(--lan-ip "$lan_ip")
         fi
+        if [[ $listen_all == true ]]; then
+            lan_arguments+=(--listen-all)
+        fi
+        if [[ $allow_any_source == true ]]; then
+            lan_arguments+=(--allow-any-source)
+        fi
+        for subnet in "${allowed_subnets[@]}"; do
+            lan_arguments+=(--allow-subnet "$subnet")
+        done
+        if [[ -n $tcp_mss ]]; then
+            lan_arguments+=(--tcp-mss "$tcp_mss")
+        fi
         python3 "$project_root/scripts/configure_lan.py" "${lan_arguments[@]}"
-    elif [[ -n $lan_ip ]]; then
+    elif [[ -n $lan_ip || $listen_all == true || $allow_any_source == true || ${#allowed_subnets[@]} -gt 0 || -n $tcp_mss ]]; then
         printf '%s\n' 'Automatic LAN setup supports Ubuntu only.' >&2
         exit 1
     fi
-elif [[ -n $lan_ip ]]; then
+elif [[ -n $lan_ip || $listen_all == true || $allow_any_source == true || ${#allowed_subnets[@]} -gt 0 || -n $tcp_mss ]]; then
     printf '%s\n' 'Automatic LAN setup requires root Ubuntu.' >&2
     exit 1
 fi

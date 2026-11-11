@@ -1,9 +1,16 @@
-<div class="video-player-wrap fox-player" data-fox-player role="group" aria-label="Видеоплеер: {{ video.title }}" tabindex="0">
+<div class="video-player-wrap fox-player" data-fox-player data-player-video="{{ video.id }}" role="group" aria-label="Видеоплеер: {{ video.title }}" tabindex="0">
   <video class="video-player" controls playsinline preload="metadata"{% if video.poster_url %} poster="{{ video.poster_url }}"{% endif %} aria-label="{{ video.title }}"><source src="{{ video.playback_url }}" type="video/mp4">Ваш браузер не поддерживает воспроизведение видео.</video>
   <button class="fox-player-center" type="button" data-fox-center aria-label="Воспроизвести видео" hidden><img src="/static/logo.svg" width="111" height="85" alt=""></button>
+  <button class="fox-player-unmute" type="button" data-fox-unmute hidden>Включить звук</button>
   <div class="fox-player-loading" data-fox-loading role="status" hidden><span class="fox-loader fox-loader-buffer" aria-hidden="true"></span><span class="visually-hidden">Загрузка видео…</span></div>
   <p class="fox-player-message" data-fox-message data-playback-error role="status" hidden></p>
   <output class="fox-player-feedback" data-fox-feedback aria-live="polite" hidden></output>
+  <section class="up-next" data-up-next aria-label="Следующее видео" hidden>
+    <p class="up-next-kicker">Следующее видео через <output data-up-next-countdown aria-live="polite">5</output> с</p>
+    <h2 data-up-next-title></h2>
+    <p class="up-next-status" data-up-next-status role="status"></p>
+    <div class="up-next-actions"><button type="button" data-up-next-cancel>Отмена</button><button class="up-next-play" type="button" data-up-next-now><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg>Смотреть сейчас</button></div>
+  </section>
   <section class="fox-player-settings" id="fox-player-settings-{{ video.id }}" data-fox-settings-panel role="region" aria-label="Настройки плеера" hidden>
     <label>Скорость <select data-fox-speed aria-label="Скорость воспроизведения"><option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="0.75">0,75×</option><option value="1" selected>Обычная</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="1.75">1,75×</option><option value="2">2×</option></select></label>
     <label>Качество <select data-fox-quality aria-label="Качество видео" disabled><option value="0">Исходное</option></select></label>
@@ -11,6 +18,7 @@
     <label class="fox-player-caption-file">Открыть субтитры .vtt<input data-fox-caption-file type="file" accept=".vtt,text/vtt" aria-label="Открыть файл субтитров WebVTT"></label>
     <p class="fox-player-hint">Файл до 1 МиБ. Только для текущего просмотра, без отправки на сервер.</p>
     <label>Повторять видео <input data-fox-loop type="checkbox"></label>
+    <label hidden data-autoplay-control>Автовоспроизведение <input type="checkbox" data-autoplay-toggle aria-label="Автовоспроизведение следующего видео"></label>
     <button class="fox-player-settings-action" data-fox-theater type="button" aria-pressed="false">Широкий режим (T)</button>
     <button class="fox-player-settings-action" data-fox-pip type="button" aria-pressed="false" hidden>Картинка в картинке (I)</button>
     <details><summary>Горячие клавиши</summary><p class="fox-player-hint">K / пробел — пауза · J / L — ±10 с · ← / → — ±5 с · ↑ / ↓ — громкость · M — звук · 0–9 — позиция · Home / End — начало / конец · &lt; / &gt; — скорость · , / . — шаг кадра на паузе (≈1/30 с) · C — субтитры · F — весь экран · T — широкий режим · I — картинка в картинке. Действуют при фокусе в плеере. На телефоне: двойное касание края — ±10 с.</p></details>
@@ -29,6 +37,7 @@
       <span class="fox-player-spacer"></span>
       <button class="fox-player-button" type="button" data-fox-captions aria-label="Включить субтитры" aria-pressed="false" title="Субтитры (C)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fox-player-sound-lines" d="M3 5h18v14H3zM10 9H7v6h3m7-6h-3v6h3"/></svg></button>
       <button class="fox-player-button" type="button" data-fox-settings aria-label="Настройки плеера" aria-expanded="false" aria-controls="fox-player-settings-{{ video.id }}" title="Настройки"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fox-player-sound-lines" d="m9 3-1 3-3 1-2 5 2 5 3 1 1 3h6l1-3 3-1 2-5-2-5-3-1-1-3z"/><circle class="fox-player-sound-lines" cx="12" cy="12" r="3"/></svg></button>
+      <button class="fox-player-button fox-player-mini-button" type="button" data-fox-mini aria-label="Включить миниплеер" title="Миниплеер"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fox-player-sound-lines" d="M3 5h18v14H3z"/><path d="M12 11h7v6h-7z"/></svg></button>
       <button class="fox-player-button fox-player-fullscreen" type="button" data-fox-fullscreen aria-label="На весь экран" title="На весь экран (F)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path class="fox-player-sound-lines" d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/></svg></button>
     </div>
   </div>

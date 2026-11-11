@@ -1,12 +1,12 @@
 """Extended player checks on the disposable stack with real H.264 playback."""
 
-import re
-from html import escape, unescape
+import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from player import no_overflow, ready, require
-from playwright.sync_api import Browser, Page, Route, expect
+from playwright.sync_api import Browser, Page, expect
 
 
 def wait_elapsed(page: Page, milliseconds: int) -> None:
@@ -15,6 +15,42 @@ def wait_elapsed(page: Page, milliseconds: int) -> None:
         "args => performance.now() - args.started >= args.milliseconds",
         arg={"started": started, "milliseconds": milliseconds},
     )
+
+
+def check_mouse_clicks(page: Page) -> str:
+    """Use native Chrome mouse events, including a held second mouse press."""
+    video = page.locator(".video-player")
+    root = page.locator("[data-fox-player]")
+    for delay in [0, 350]:
+        video.dblclick(position={"x": 30, "y": 30}, delay=delay)
+        page.wait_for_function("() => Boolean(document.fullscreenElement)")
+        wait_elapsed(page, 600)
+        require(video.evaluate("v => v.paused"), "Double click also started playback")
+        page.locator("[data-fox-fullscreen]").click()
+        page.wait_for_function("() => !document.fullscreenElement")
+
+    video.click(position={"x": 30, "y": 30})
+    page.wait_for_function(
+        "() => { const v = document.querySelector('.video-player'); "
+        "return !v.paused && v.currentTime > .2; }"
+    )
+    playing_position = video.evaluate("v => v.currentTime")
+    video.dblclick(position={"x": 30, "y": 30}, delay=350)
+    page.wait_for_function("() => Boolean(document.fullscreenElement)")
+    wait_elapsed(page, 600)
+    require(
+        video.evaluate(
+            "(v, time) => !v.paused && v.currentTime > time", playing_position
+        ),
+        "Double click interrupted actual playback",
+    )
+    page.locator("[data-fox-fullscreen]").click()
+    page.wait_for_function("() => !document.fullscreenElement")
+    video.click(position={"x": 30, "y": 30})
+    page.wait_for_function("() => document.querySelector('.video-player').paused")
+    root.focus()
+    root.press("Home")
+    return "native single click; double click at 0/350ms preserves paused/playing state"
 
 
 def check_player_extended(
@@ -132,13 +168,7 @@ def check_player_extended(
     )
     root.press("Home")
 
-    # A double click changes fullscreen only; delayed single clicks must cancel.
-    video.dblclick(position={"x": 30, "y": 30})
-    page.wait_for_function("() => Boolean(document.fullscreenElement)")
-    wait_elapsed(page, 400)
-    require(video.evaluate("v => v.paused"), "Double click also toggled playback")
-    page.locator("[data-fox-fullscreen]").click()
-    page.wait_for_function("() => !document.fullscreenElement")
+    double_click = check_mouse_clicks(page)
 
     page.locator("[data-fox-center]").click()
     page.wait_for_function(
@@ -232,12 +262,14 @@ def check_player_extended(
 
     mobile_report = check_mobile(browser, base_url, watch_path, artifacts, errors)
     storage_report = check_unavailable_storage(browser, base_url, watch_path, errors)
-    switching_report = check_source_switching(browser, base_url, watch_path, errors)
+    switching_report = check_source_switching(
+        browser, base_url, watch_path, errors, artifacts
+    )
     return {
         "quality": "single actual decoded resolution; no fictional alternatives",
         "preferences": "rate, volume, mute, loop and theater survived reload",
         "keyboard": "J/L, digits, Home/End, paused frames and speed passed",
-        "double_click": "fullscreen without toggling playback",
+        "double_click": double_click,
         "settings": "Escape restores focus; open panel stays visible during playback",
         "captions": (
             "real WebVTT cues, shortcut, session-only file; invalid/empty/large "
@@ -254,38 +286,88 @@ def check_source_switching(
     base_url: str,
     watch_path: str,
     errors: list[str],
+    artifacts: Path,
 ) -> dict[str, str]:
     """Exercise source reloads using two URLs for the same real protected MP4."""
     context = browser.new_context(viewport={"width": 1440, "height": 900})
+    diagnostics: dict[str, Any] = {"responses": [], "request_failures": []}
 
-    def inject_sources(route: Route) -> None:
-        response = route.fetch()
-        require(response.ok, "Source-switch fixture could not read the watch page")
-        html = response.text()
-        source = re.search(r"<source\b[^>]*>", html)
-        require(source is not None, "Source-switch fixture found no video source")
-        tag = source.group()
-        match = re.search(r'\bsrc="([^"]+)"', tag)
-        require(match is not None, "Source-switch fixture found no source URL")
-        url = unescape(match.group(1))
-        separator = "&" if "?" in url else "?"
-        second = escape(url + separator + "player_variant=second", quote=True)
-        sources = (
-            tag[:-1]
-            + ' data-quality="Вариант A">'
-            + f'<source src="{second}" type="video/mp4" data-quality="Вариант B">'
-        )
-        route.fulfill(
-            response=response,
-            body=html[: source.start()] + sources + html[source.end() :],
-        )
+    def resource_kind(url: str) -> str:
+        path = urlsplit(url).path
+        if path.startswith("/static/"):
+            return "static/" + Path(path).name
+        if path.startswith("/media/"):
+            return "media"
+        return "other"
+
+    # Keep the real HTTP document and its IP address space. A fulfilled synthetic
+    # document on a private HTTP origin can trigger Chrome Local Network Access
+    # restrictions for every subsequent subresource. Patch during parsing, before
+    # the deferred player script takes its snapshot of the available sources.
+    context.add_init_script(
+        """(() => {
+          const addSource = () => {
+            const source = document.querySelector('.video-player source[src]');
+            if (!source) return;
+            observer.disconnect();
+            const second = source.cloneNode();
+            const url = new URL(source.src);
+            url.searchParams.set('player_variant', 'second');
+            source.dataset.quality = 'Вариант A';
+            second.src = url.href;
+            second.dataset.quality = 'Вариант B';
+            source.after(second);
+          };
+          const observer = new MutationObserver(addSource);
+          observer.observe(document, {childList: true, subtree: true});
+          addSource();
+        })();"""
+    )
 
     try:
         page = context.new_page()
         page.on("pageerror", lambda error: errors.append(type(error).__name__))
-        page.route(base_url + watch_path, inject_sources)
+        page.on(
+            "response",
+            lambda response: diagnostics["responses"].append(
+                {"kind": resource_kind(response.url), "status": response.status}
+            ),
+        )
+        page.on(
+            "requestfailed",
+            lambda request: diagnostics["request_failures"].append(
+                {
+                    "kind": resource_kind(request.url),
+                    "failure": request.failure,
+                }
+            ),
+        )
         page.goto(base_url + watch_path)
-        ready(page)
+        try:
+            ready(page)
+        except Exception:
+            # Never save HTML, URLs, cookies or headers. Diagnostics must not
+            # replace the original failure if the page is already unavailable.
+            try:
+                diagnostics["state"] = page.evaluate(
+                    """() => {
+                  const v = document.querySelector('.video-player');
+                  return {
+                    hasVideo: Boolean(v), readyState: v?.readyState,
+                    networkState: v?.networkState, errorCode: v?.error?.code,
+                    paused: v?.paused,
+                    sourceCount: v?.querySelectorAll('source').length,
+                    enhanced: document.querySelector('[data-fox-player]')
+                      ?.classList.contains('is-enhanced')
+                  };
+                }"""
+                )
+                (artifacts / "source-switch-failure.json").write_text(
+                    json.dumps(diagnostics, indent=2) + "\n"
+                )
+            except Exception:
+                pass
+            raise
         video = page.locator(".video-player")
         root = page.locator("[data-fox-player]")
         settings = page.locator("[data-fox-settings]")

@@ -1,26 +1,30 @@
 {% extends "base.html" %}
+{% from "auth_parts.html" import field_icon, password_toggle, auth_art %}
 {% block content %}
 <section class="auth-layout" aria-labelledby="auth-title">
   <div class="auth-intro">
     <p class="eyebrow">Добро пожаловать в FoxTube</p>
     <h1 id="auth-title">Начните свою историю</h1>
-    <p class="auth-description">Создайте аккаунт. Ваш канал появится вместе с ним.</p>
+    <p class="auth-description">Соберите любимые видео в одном месте и поделитесь тем, что интересно вам.</p>
+    {{ auth_art() }}
   </div>
   <div class="auth-card">
+    <span class="auth-card-kicker">Место для ваших историй</span>
     <h2>Создание аккаунта</h2>
+    <p class="auth-card-description">Ваш канал появится вместе с аккаунтом.</p>
     <form class="auth-form" action="/api/v1/auth/register" method="post" data-auth-form="register" novalidate>
       <div class="form-field">
         <label for="register-name">Имя</label>
-        <input id="register-name" name="display_name" type="text" autocomplete="nickname" minlength="1" maxlength="80" aria-describedby="register-name-hint" required>
+        <div class="input-wrap">{{ field_icon('person') }}<input id="register-name" name="display_name" type="text" autocomplete="nickname" minlength="1" maxlength="80" aria-describedby="register-name-hint" placeholder="Как вас зовут?" required></div>
         <p class="form-hint" id="register-name-hint">Так вас будут видеть другие пользователи.</p>
       </div>
       <div class="form-field">
         <label for="register-email">Email</label>
-        <input id="register-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required>
+        <div class="input-wrap">{{ field_icon('email') }}<input id="register-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" placeholder="you@example.com" required></div>
       </div>
       <div class="form-field">
         <label for="register-password">Пароль</label>
-        <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="register-password-hint" required>
+        <div class="input-wrap input-wrap-password">{{ field_icon('password') }}<input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="register-password-hint" placeholder="Придумайте надёжный пароль" required>{{ password_toggle('register-password') }}</div>
         <p class="form-hint" id="register-password-hint">От 12 до 128 символов. Можно использовать пробелы.</p>
       </div>
       <p class="form-message" data-auth-error role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></p>

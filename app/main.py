@@ -10,6 +10,7 @@ from starlette.staticfiles import StaticFiles
 
 from app.auth.routes import router as auth_router
 from app.channels.routes import router as channel_router
+from app.core.canonical_origin import CanonicalOriginMiddleware
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine
 from app.core.request_limits import AuthBodyLimitMiddleware
@@ -50,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.settings = settings
     application.state.engine = engine
     application.add_middleware(AuthBodyLimitMiddleware)
+    application.add_middleware(CanonicalOriginMiddleware, settings=settings)
     application.add_middleware(
         TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts
     )

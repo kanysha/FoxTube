@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "social_parts.html" import playlist_cards %}
 {% from "video_parts.html" import pagination %}
+{% from "ui_parts.html" import empty_icon %}
 {% block content %}
 <section class="content-heading"><p class="eyebrow">Библиотека</p><h1>Мои плейлисты</h1><p>Собирайте видео вместе. Приватный плейлист виден только вам.</p></section>
 <details class="playlist-create-panel"><summary class="secondary-button">Создать плейлист</summary>
@@ -11,6 +12,6 @@
     <p class="form-message" data-social-error role="status" aria-live="polite" hidden></p><button class="primary-button" type="submit">Создать</button>
   </form>
 </details>
-{% if playlists['items'] %}{{ playlist_cards(playlists['items']) }}{% else %}<section class="empty-state"><h2>Пока нет плейлистов</h2><p>Создайте первый и добавьте видео кнопкой «Сохранить» на странице просмотра.</p></section>{% endif %}
+{% if playlists['items'] %}{{ playlist_cards(playlists['items']) }}{% else %}<section class="empty-state">{{ empty_icon('playlist') }}<h2>Пока нет плейлистов</h2><p>Создайте первый и добавьте видео кнопкой «Сохранить» на странице просмотра.</p></section>{% endif %}
 {{ pagination(playlists, '/playlists') }}
 {% endblock %}

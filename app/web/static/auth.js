@@ -1,6 +1,21 @@
 "use strict";
 
-(() => {
+window.FoxTubePage.register((page) => {
+  for (const toggle of document.querySelectorAll("[data-password-toggle]")) {
+    const input = document.getElementById(toggle.getAttribute("aria-controls"));
+    if (!(input instanceof HTMLInputElement) || input.name !== "password") continue;
+    const renderPassword = (visible) => {
+      input.type = visible ? "text" : "password";
+      toggle.setAttribute("aria-pressed", String(visible));
+      toggle.setAttribute("aria-label", visible ? "Скрыть пароль" : "Показать пароль");
+      toggle.title = visible ? "Скрыть пароль" : "Показать пароль";
+    };
+    page.listen(toggle, "click", () => renderPassword(input.type === "password"));
+    page.listen(input.form, "reset", () => renderPassword(false));
+    renderPassword(false);
+    toggle.hidden = false;
+  }
+
   const messages = {
     email: "Укажите корректный email.",
     password: "Пароль должен содержать от 12 до 128 символов.",
@@ -8,6 +23,7 @@
   };
 
   const showError = (form, message, field) => {
+    if (!page.active) return;
     const region = form.querySelector("[data-auth-error]");
     if (region) {
       region.textContent = message;
@@ -54,13 +70,13 @@
 
   for (const form of document.querySelectorAll("form[data-auth-form]")) {
     let pending = false;
-    form.addEventListener("input", (event) => {
+    page.listen(form, "input", (event) => {
       if (event.target instanceof HTMLInputElement) {
         event.target.removeAttribute("aria-invalid");
       }
     });
 
-    form.addEventListener("submit", async (event) => {
+    page.listen(form, "submit", async (event) => {
       event.preventDefault();
       if (pending) return;
 
@@ -100,11 +116,6 @@
         }
       }
 
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
-      if (!csrf) {
-        showError(form, "Не удалось подтвердить сессию. Обновите страницу и повторите попытку.");
-        return;
-      }
       const button = form.querySelector('button[type="submit"]');
       const initialLabel = button?.textContent;
       pending = true;
@@ -115,7 +126,25 @@
       }
 
       try {
-        const response = await fetch(`/api/v1/auth/${action}`, {
+        // Another tab may have rotated the cookie since this page was opened.
+        const sessionResponse = await page.fetch("/api/v1/auth/session", {
+          credentials: "same-origin",
+          mode: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        const session = await sessionResponse.json().catch(() => null);
+        page.check();
+        if (!sessionResponse.ok) {
+          showError(form, errorMessage(sessionResponse.status, session, action));
+          return;
+        }
+        const csrf = session?.csrf_token;
+        if (typeof csrf !== "string" || !/^[a-f0-9]{64}$/.test(csrf)) {
+          showError(form, "Не удалось подтвердить сессию. Обновите страницу и повторите попытку.");
+          return;
+        }
+        const response = await page.fetch(`/api/v1/auth/${action}`, {
           method: "POST",
           credentials: "same-origin",
           mode: "same-origin",
@@ -128,14 +157,17 @@
         });
         if (!response.ok) {
           const data = await response.json().catch(() => null);
+          page.check();
           showError(form, errorMessage(response.status, data, action));
           return;
         }
         form.reset();
+        window.FoxTubePage.sessionChanged();
         window.location.assign(action === "logout" ? "/" : "/account");
       } catch {
         showError(form, "Не удалось связаться с сервером. Проверьте соединение и попробуйте ещё раз.");
       } finally {
+        if (!page.active) return;
         pending = false;
         form.removeAttribute("aria-busy");
         if (button) {
@@ -145,4 +177,4 @@
       }
     });
   }
-})();
+});

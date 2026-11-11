@@ -12,7 +12,7 @@ from app.auth.service import SessionContext
 from app.channels.service import get_channel
 from app.core.text import DatabaseText
 from app.social.service import channel_playlists
-from app.videos.service import get_video, list_videos
+from app.videos.service import get_video, list_videos, recommendations
 
 WEB_ROOT = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(WEB_ROOT / "templates"))
@@ -186,6 +186,11 @@ def watch(request: Request, video_id: UUID) -> HTMLResponse:
             "active_page": "",
             "query": "",
             "video": video.model_dump(mode="json"),
+            "recommendations": recommendations(
+                request.app.state.engine,
+                video_id,
+                state.user.id if state and state.user else None,
+            ).model_dump(mode="json"),
             **viewer_context(state),
         },
     )

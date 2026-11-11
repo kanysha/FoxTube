@@ -1,6 +1,6 @@
 "use strict";
 
-(() => {
+window.FoxTubePage.register((page) => {
   const states = {
     UPLOADING: "Ожидает загрузки",
     QUEUED: "В очереди",
@@ -34,15 +34,17 @@
       headers["X-CSRF-Token"] = csrf;
       if (data !== undefined) headers["Content-Type"] = "application/json";
     }
-    const response = await fetch(url, {
+    const response = await page.fetch(url, {
       method, headers, credentials: "same-origin", mode: "same-origin",
       body: data === undefined ? undefined : JSON.stringify(data),
     });
     const body = response.status === 204 ? null : await response.json().catch(() => null);
+    page.check();
     if (!response.ok) throw new RequestError(response.status, body);
     return body;
   };
   const showError = (form, error) => {
+    if (!page.active) return;
     const region = form.querySelector("[data-video-error]");
     if (!region) return;
     region.textContent = error instanceof Error && /[а-яё]/i.test(error.message)
@@ -51,10 +53,12 @@
     region.focus();
   };
   const clearError = (form) => {
+    if (!page.active) return;
     const region = form.querySelector("[data-video-error]");
     if (region) { region.textContent = ""; region.hidden = true; }
   };
   const setBusy = (form, busy) => {
+    if (!page.active) return;
     form.setAttribute("aria-busy", String(busy));
     for (const field of form.querySelectorAll("input, textarea, select, button")) {
       if (!field.matches("[data-upload-cancel]")) field.disabled = busy;
@@ -84,16 +88,21 @@
     let sending = false;
     let busy = false;
     let generation = 0;
+    page.cleanup(() => {
+      ++generation;
+      if (xhr) xhr.abort();
+    });
 
-    fileInput.addEventListener("change", () => {
+    page.listen(fileInput, "change", () => {
       if (!titleInput.value.trim() && fileInput.files[0]) {
         titleInput.value = fileInput.files[0].name.replace(/\.[^.]+$/, "").slice(0, 200);
       }
     });
-    window.addEventListener("beforeunload", (event) => {
+    page.listen(window, "beforeunload", (event) => {
       if (sending) { event.preventDefault(); event.returnValue = ""; }
     });
     const finish = (video) => {
+      page.clean(uploadForm);
       showLoader(null);
       uploadForm.setAttribute("aria-busy", "false");
       sending = false;
@@ -116,7 +125,7 @@
       progressCard.append(another);
     };
     const monitor = async (id, currentGeneration) => {
-      if (generation !== currentGeneration) return;
+      if (!page.active || generation !== currentGeneration) return;
       try {
         const video = await api(endpoint(id));
         if (generation !== currentGeneration) return;
@@ -126,6 +135,7 @@
           ? "Файл отправлен. Готовим версию для просмотра; это может занять несколько минут."
           : "Файл отправлен. Ожидаем свободное место в обработке.";
       } catch (error) {
+        if (!page.active) return;
         if ([401, 403, 404].includes(error.status)) {
           busy = false;
           showLoader(null);
@@ -136,7 +146,7 @@
         }
         note.textContent = "Связь временно потеряна. Проверяем готовность…";
       }
-      if (generation === currentGeneration) window.setTimeout(() => monitor(id, currentGeneration), 2000);
+      if (generation === currentGeneration) page.timeout(() => monitor(id, currentGeneration), 2000);
     };
     const sendFile = (id, file) => new Promise((resolve, reject) => {
       xhr = new XMLHttpRequest();
@@ -144,7 +154,7 @@
       xhr.setRequestHeader("Content-Type", "application/octet-stream");
       xhr.setRequestHeader("X-CSRF-Token", csrf || "");
       xhr.setRequestHeader("Accept", "application/json");
-      xhr.upload.addEventListener("progress", (event) => {
+      page.listen(xhr.upload, "progress", (event) => {
         if (!event.lengthComputable) return;
         const percent = Math.min(100, Math.round(event.loaded / event.total * 100));
         sendProgress.value = percent;
@@ -154,18 +164,18 @@
           note.textContent = "Отправка завершена. Ждём подтверждения сервера.";
         }
       });
-      xhr.addEventListener("load", () => {
+      page.listen(xhr, "load", () => {
         let body = null;
         try { body = JSON.parse(xhr.responseText); } catch { /* Nginx may return HTML. */ }
         if (xhr.status >= 200 && xhr.status < 300) resolve(body);
         else reject(new RequestError(xhr.status, body));
       });
-      xhr.addEventListener("error", () => reject(new RequestError(0)));
-      xhr.addEventListener("abort", () => reject(new Error("Загрузка отменена.")));
+      page.listen(xhr, "error", () => reject(new RequestError(0)));
+      page.listen(xhr, "abort", () => reject(new Error("Загрузка отменена.")));
       xhr.send(file);
     });
 
-    uploadForm.addEventListener("submit", async (event) => {
+    page.listen(uploadForm, "submit", async (event) => {
       event.preventDefault();
       if (busy || !uploadForm.reportValidity()) return;
       clearError(uploadForm);
@@ -217,6 +227,7 @@
         showLoader("pulse");
         await monitor(draftId, currentGeneration);
       } catch (error) {
+        if (!page.active) return;
         sending = false;
         if (generation !== currentGeneration) return;
         // A lost response may follow an accepted upload. Check before offering retry.
@@ -230,6 +241,7 @@
             }
           } catch { /* Keep the draft for a full-file retry. */ }
         }
+        if (!page.active) return;
         busy = false;
         setBusy(uploadForm, false);
         cancelButton.hidden = false;
@@ -241,7 +253,7 @@
       }
     });
 
-    cancelButton.addEventListener("click", async () => {
+    page.listen(cancelButton, "click", async () => {
       ++generation;
       if (xhr && sending) xhr.abort();
       sending = false;
@@ -260,6 +272,7 @@
         sendProgress.value = 0;
         sendPercent.textContent = "0%";
       } catch (error) {
+        if (!page.active) return;
         showError(uploadForm, error);
         cancelButton.disabled = false;
         showLoader(null);
@@ -277,22 +290,23 @@
         if (["READY", "FAILED"].includes(video.status)) { window.location.reload(); return; }
         watch.querySelector("[data-watch-status]").textContent = states[video.status] || "Подготовка видео";
       } catch (error) {
+        if (!page.active) return;
         if ([401, 403, 404].includes(error.status)) {
           watch.querySelector("[data-watch-note]").textContent = error.message;
           watch.querySelector(".fox-loader")?.remove();
           return;
         }
       }
-      window.setTimeout(refreshStatus, 2000);
+      page.timeout(refreshStatus, 2000);
     };
-    window.setTimeout(refreshStatus, 2000);
+    page.timeout(refreshStatus, 2000);
   }
   const ownerPanel = document.querySelector("[data-video-owner]");
   if (ownerPanel) {
     const id = ownerPanel.dataset.videoOwner;
     const editForm = ownerPanel.querySelector("[data-video-edit]");
     const grantForm = ownerPanel.querySelector("[data-video-grant]");
-    editForm.addEventListener("submit", async (event) => {
+    page.listen(editForm, "submit", async (event) => {
       event.preventDefault();
       if (editForm.getAttribute("aria-busy") === "true" || !editForm.reportValidity()) return;
       clearError(editForm);
@@ -309,7 +323,7 @@
         window.location.reload();
       } catch (error) { showError(editForm, error); setBusy(editForm, false); }
     });
-    ownerPanel.querySelector("[data-video-delete]").addEventListener("click", async () => {
+    page.listen(ownerPanel.querySelector("[data-video-delete]"), "click", async () => {
       if (!window.confirm("Удалить видео? Оно станет недоступно зрителям. Это действие нельзя отменить.")) return;
       clearError(editForm);
       setBusy(editForm, true);
@@ -336,13 +350,13 @@
           revoke.className = "danger-button";
           revoke.textContent = "Отозвать";
           revoke.setAttribute("aria-label", `Отозвать доступ: ${person.email}`);
-          revoke.addEventListener("click", async () => {
+          page.listen(revoke, "click", async () => {
             revoke.disabled = true;
             revoke.setAttribute("aria-busy", "true");
             clearError(grantForm);
             try { await api(`${endpoint(id)}/grants/${encodeURIComponent(person.user_id)}`, "DELETE"); await loadGrants(); }
             catch (error) { showError(grantForm, error); }
-            finally { revoke.disabled = false; revoke.removeAttribute("aria-busy"); }
+            finally { if (page.active) { revoke.disabled = false; revoke.removeAttribute("aria-busy"); } }
           });
           row.append(label, revoke);
           list.append(row);
@@ -350,12 +364,13 @@
         empty.hidden = result.items.length > 0;
         empty.textContent = "Разрешения пока не выданы.";
       } catch (error) {
+        if (!page.active) return;
         empty.hidden = false;
         empty.textContent = "Не удалось получить список разрешений.";
         showError(grantForm, error);
       }
     };
-    grantForm.addEventListener("submit", async (event) => {
+    page.listen(grantForm, "submit", async (event) => {
       event.preventDefault();
       if (grantForm.getAttribute("aria-busy") === "true" || !grantForm.reportValidity()) return;
       clearError(grantForm);
@@ -408,12 +423,13 @@
             if (video.playback_url) thumbnail.dataset.previewSrc = video.playback_url;
           }
         } catch (error) {
+          if (!page.active) return;
           if ([401, 403, 404].includes(error.status)) { card.dataset.videoStatus = "UNAVAILABLE"; card.querySelector(".thumbnail-loader")?.remove(); card.querySelector("[data-status-label]").textContent = "Недоступно"; }
         }
         if (["QUEUED", "PROCESSING"].includes(card.dataset.videoStatus)) pending = true;
       }
-      if (pending) window.setTimeout(refreshCards, 2000);
+      if (pending) page.timeout(refreshCards, 2000);
     };
-    window.setTimeout(refreshCards, 2000);
+    page.timeout(refreshCards, 2000);
   }
-})();
+});

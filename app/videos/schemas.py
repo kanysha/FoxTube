@@ -61,6 +61,10 @@ class VideoPage(BaseModel):
     total: int
 
 
+class VideoRecommendations(BaseModel):
+    items: list[VideoView]
+
+
 class GrantInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: EmailStr = Field(max_length=254)

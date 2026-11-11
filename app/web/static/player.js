@@ -20,7 +20,10 @@
     } catch { return {}; }
   };
 
-  for (const root of document.querySelectorAll("[data-fox-player]")) {
+  const instances = new WeakMap();
+  const initialize = (container = document) => {
+  for (const root of container.querySelectorAll("[data-fox-player]")) {
+    if (instances.has(root)) continue;
     const get = (name) => root.querySelector(`[data-fox-${name}]`);
     const video = root.querySelector("video");
     const controls = get("controls");
@@ -50,7 +53,9 @@
 
     const listeners = new AbortController();
     const listen = (element, event, handler) => element.addEventListener(event, handler, { signal: listeners.signal });
-    const preferences = readPreferences();
+    const preferences = root.dataset.preserveState === "true"
+      ? { volume: video.volume, muted: video.muted, rate: video.playbackRate, loop: video.loop }
+      : readPreferences();
     let hideTimer, feedbackTimer, clickTimer, touchTimer;
     let keyboardFocus = false;
     let toolbarHover = false;
@@ -67,9 +72,14 @@
     let captionAttempt = 0;
     let selectedCaption;
     let pendingQuality;
+    let captionResize;
     const captionLines = new WeakMap();
     const observedTracks = new WeakSet();
-    let mediaFailed = Boolean(video.error) || video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE;
+    // A newly pinned preview may still be awaiting resource selection. Its
+    // initial NETWORK_NO_SOURCE is transient; actual failures emit error.
+    const awaitingPreview = root.dataset.preserveState === "true" && !video.currentSrc;
+    let mediaFailed = Boolean(video.error) ||
+      (!awaitingPreview && video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE);
     const variants = Array.from(video.querySelectorAll("source")).filter((source) => {
       try { return source.src && new URL(source.src).origin === location.origin; }
       catch { return false; }
@@ -89,7 +99,11 @@
         if (track.mode !== "showing") continue;
         for (const cue of track.activeCues || []) {
           if (!captionLines.has(cue)) captionLines.set(cue, cue.line);
-          if (captionLines.get(cue) === "auto") cue.line = root.classList.contains("is-controls-hidden") ? -1 : -4;
+          if (captionLines.get(cue) === "auto") {
+            const lineHeight = Math.max(10, video.clientHeight * 0.05 * 1.2);
+            const clearance = Math.max(4, Math.ceil((controls.offsetHeight + 12) / lineHeight));
+            cue.line = root.classList.contains("is-controls-hidden") ? -1 : -clearance;
+          }
         }
       }
     };
@@ -165,6 +179,7 @@
       volume.setAttribute("aria-valuetext", `${Math.round(Number(volume.value) * 100)}%`);
       get("sound-icon").toggleAttribute("hidden", muted);
       get("muted-icon").toggleAttribute("hidden", !muted);
+      get("unmute").hidden = !muted;
       if (video.volume > 0) previousVolume = video.volume;
     };
     const play = async () => {
@@ -174,7 +189,11 @@
       try { await video.play(); }
       catch (error) {
         if (attempt === playAttempt && error?.name !== "AbortError") {
-          showMessage("Не удалось начать просмотр. Нажмите воспроизведение ещё раз или обновите страницу.");
+          if (error?.name === "NotAllowedError" && !video.muted) {
+            video.muted = true;
+            try { await video.play(); }
+            catch { if (attempt === playAttempt) showMessage("Не удалось начать просмотр. Нажмите воспроизведение, чтобы продолжить."); }
+          } else showMessage("Не удалось начать просмотр. Нажмите воспроизведение ещё раз или обновите страницу.");
         }
       } finally {
         if (attempt === playAttempt) {
@@ -375,13 +394,28 @@
         quality.replaceChildren(...variants.map((source, index) => new Option(source.dataset.quality || `Вариант ${index + 1}`, String(index))));
         quality.disabled = false;
       }
+      listen(root, "foxtube:player-mode", () => {
+        clearTimeout(clickTimer); clearTimeout(touchTimer);
+        previousTap = undefined;
+        closeSettings(); updateProgress(); updatePlayback();
+      });
+      listen(get("unmute"), "click", () => {
+        if (video.volume === 0) video.volume = previousVolume || 1;
+        video.muted = false;
+        if (video.paused) play();
+      });
       listen(center, "click", togglePlayback);
       listen(toggle, "click", togglePlayback);
+      // Cancel on the second press: its mouseup can arrive after the single-click
+      // delay when the user holds the button during a double click.
+      listen(video, "mousedown", (event) => {
+        if (event.detail > 1) clearTimeout(clickTimer);
+      });
       listen(video, "click", (event) => {
         if (performance.now() < ignoreMouseUntil) return;
         root.focus({ preventScroll: true });
         clearTimeout(clickTimer);
-        if (event.detail < 2) clickTimer = setTimeout(togglePlayback, 250);
+        if (event.detail < 2) clickTimer = setTimeout(togglePlayback, 500);
       });
       listen(video, "dblclick", (event) => {
         if (performance.now() < ignoreMouseUntil) return;
@@ -470,6 +504,7 @@
       });
       for (const event of ["timeupdate", "durationchange", "progress", "seeked"]) listen(video, event, updateProgress);
       listen(video, "loadedmetadata", () => {
+        if (mediaFailed) showMessage("");
         mediaFailed = false;
         updateQuality();
         updateProgress();
@@ -487,6 +522,7 @@
         if (video.paused) waiting = false;
         updatePlayback();
       });
+      listen(root, "foxtube:play-request", play);
       for (const event of ["waiting", "seeking"]) listen(video, event, () => { waiting = !video.paused; updatePlayback(); });
       for (const event of ["playing", "canplay", "seeked"]) listen(video, event, () => { waiting = false; updatePlayback(); });
       listen(video, "volumechange", () => { updateVolume(); savePreferences(); });
@@ -573,8 +609,20 @@
       controls.hidden = false;
       video.controls = false;
       root.classList.add("is-enhanced");
+      captionResize = new ResizeObserver(positionCaptions);
+      captionResize.observe(video);
+      instances.set(root, () => {
+        captionAttempt += 1; playAttempt += 1;
+        listeners.abort();
+        captionResize?.disconnect();
+        for (const track of video.textTracks) track.removeEventListener("cuechange", positionCaptions);
+        for (const timer of [hideTimer, feedbackTimer, clickTimer, touchTimer]) clearTimeout(timer);
+        disposeTrack(localTrack); disposeTrack(pendingLocalTrack);
+        instances.delete(root);
+      });
     } catch {
       listeners.abort();
+      captionResize?.disconnect();
       for (const track of video.textTracks) track.removeEventListener("cuechange", positionCaptions);
       for (const timer of [hideTimer, feedbackTimer, clickTimer, touchTimer]) clearTimeout(timer);
       disposeTrack(localTrack);
@@ -586,4 +634,8 @@
       root.classList.remove("is-enhanced", "is-controls-hidden");
     }
   }
+  };
+  window.FoxPlayer = { initialize, dispose: (root) => instances.get(root)?.() };
+  initialize();
+  document.addEventListener("foxtube:page-ready", () => initialize());
 })();
