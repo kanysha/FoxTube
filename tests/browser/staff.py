@@ -68,7 +68,10 @@ def check_moderation(
     viewer_page: "Page",
     viewer_email: str,
     errors: list[str],
+    owner_page: "Page",
 ) -> dict[str, object]:
+    from miniplayer import advance, remember_video, same_video, unloaded_mini
+    from player import ready
     from playwright.sync_api import expect
 
     artifacts = Path(os.environ.get("FOXTUBE_BROWSER_ARTIFACTS", "/artifacts"))
@@ -78,6 +81,9 @@ def check_moderation(
     )
     guest_context = browser.new_context(locale="ru-RU")
     admin = admin_context.new_page()
+    owner_mini = owner_page.context.new_page()
+    owner_mini.set_default_timeout(15000)
+    owner_mini.on("pageerror", lambda error: errors.append(type(error).__name__))
     admin.set_default_timeout(15000)
     admin.on("pageerror", lambda error: errors.append(type(error).__name__))
 
@@ -119,7 +125,15 @@ def check_moderation(
         admin.get_by_label("Пароль", exact=True).fill(ADMIN_PASSWORD)
         admin.get_by_role("button", name="Войти", exact=True).click()
         admin.wait_for_url(f"{base_url}/account")
-        admin.goto(f"{base_url}/admin")
+        # Role lookup must be initialized on actual server DOM inserted by mini nav.
+        admin.goto(f"{base_url}/watch/{video_id}")
+        ready(admin)
+        remember_video(admin)
+        admin.locator("[data-fox-mini]").click()
+        admin.locator('.primary-nav a[href="/admin"]').click()
+        admin.wait_for_url(f"{base_url}/admin")
+        expect(admin.locator("[data-role-lookup]")).to_be_visible()
+        same_video(admin)
         role_form = lookup(viewer_email)
         expect(role_form.locator('[name="role"]')).to_have_value("user")
         role_form.locator('[name="role"]').select_option("moderator")
@@ -141,9 +155,28 @@ def check_moderation(
         # replacement session or a second login.
         viewer_page.reload()
         expect(viewer_page.locator('a[href="/moderation"]').first).to_be_visible()
-        viewer_page.goto(f"{base_url}/moderation")
+        viewer_page.goto(f"{base_url}/watch/{video_id}")
+        ready(viewer_page)
+        remember_video(viewer_page)
+        viewer_page.locator("[data-fox-mini]").click()
+        viewer_page.locator('.primary-nav a[href="/moderation"]').click()
+        viewer_page.wait_for_url(f"{base_url}/moderation")
         card = viewer_page.locator(f'[data-report-card][data-video-id="{video_id}"]')
         expect(card).to_be_visible()
+        same_video(viewer_page)
+
+        # Owners can retain management metadata after hidden, but must lose media.
+        owner_mini.goto(f"{base_url}/watch/{video_id}")
+        ready(owner_mini)
+        remember_video(owner_mini)
+        owner_mini.locator("[data-fox-mini]").click()
+        owner_mini.locator("[data-fox-toggle]").click()
+        advance(owner_mini, 0.3)
+        owner_mini.locator('.brand[href="/"]').click()
+        owner_mini.wait_for_url(base_url + "/")
+        expect(owner_mini.locator("#page-title")).to_have_text("Главная")
+        same_video(owner_mini)
+        viewer_page.bring_to_front()
         moderation = card.locator("[data-video-moderation]")
         moderation.locator('[name="status"]').select_option("hidden")
         moderation.locator('[name="reason"]').fill(
@@ -155,6 +188,32 @@ def check_moderation(
             ).click()
         expect(card.locator(".moderation-state dd").nth(1)).to_have_text("Скрыто")
         check_guest_media(hidden=True)
+        # An internal link click gives a real validation trigger in headless Chrome;
+        # bring_to_front alone does not reliably emit focus/visibility events.
+        with owner_mini.expect_response(
+            lambda response: (
+                response.request.method == "GET"
+                and urlsplit(response.url).path == f"/api/v1/videos/{video_id}"
+            )
+        ) as validation:
+            owner_mini.locator('.primary-nav a[href="/search"]').click()
+        owner_mini.wait_for_url(base_url + "/search")
+        expect(owner_mini.locator("#page-title")).to_have_text("Поиск видео")
+        require(
+            owner_mini.evaluate("() => window.__miniQA.document === document"),
+            "Owner validation transition unexpectedly reloaded the document",
+        )
+        unloaded_mini(owner_mini)
+        expect(owner_mini.locator("[data-mini-notice]")).to_contain_text(
+            "Видео больше недоступно"
+        )
+        owner_metadata = validation.value
+        require(owner_metadata.status == 200, "Owner lost management metadata")
+        require(
+            owner_metadata.json()["playback_url"] is None,
+            "Hidden video still offers owner a playback URL",
+        )
+        viewer_page.bring_to_front()
 
         moderation.locator('[name="status"]').select_option("visible")
         moderation.locator('[name="reason"]').fill(
@@ -191,9 +250,19 @@ def check_moderation(
             "Закрыта жалоба",
             "Видео восстановлено",
             "Видео скрыто",
-            "Роль изменена",
         ):
-            expect(admin.locator(".audit-event").filter(has_text=title)).to_be_visible()
+            event = (
+                admin.locator(".audit-event")
+                .filter(has=admin.get_by_role("heading", name=title, exact=True))
+                .filter(has=admin.get_by_text(f"Видео: {video_id}", exact=True))
+            )
+            expect(event).to_have_count(1)
+            expect(event).to_be_visible()
+        expect(
+            admin.locator(".audit-event").filter(
+                has=admin.get_by_role("heading", name="Роль изменена", exact=True)
+            )
+        ).to_be_visible()
         assert_no_overflow(admin)
         admin.screenshot(path=artifacts / "admin-desktop.png", full_page=True)
 
@@ -223,6 +292,10 @@ def check_moderation(
         admin.screenshot(path=artifacts / "admin-mobile.png", full_page=True)
         return {
             "role_assignment": "persisted through UI; active session rechecked",
+            "staff_soft_navigation": "watch→mini→admin lookup and moderation form",
+            "owner_hidden_mini": (
+                "real link revalidates HTTP200/playbacknull; empty decoder/attributes"
+            ),
             "moderation": "hide/restore through UI; guest HEAD/Range 404 then 200/206",
             "resolution": "persisted through UI; closed report visible",
             "audit": "role change, hide, restore and resolution visible",
@@ -230,6 +303,7 @@ def check_moderation(
             "viewports": ["1440x900", "390x844"],
         }
     finally:
+        owner_mini.close()
         guest_context.close()
         admin_context.close()
 

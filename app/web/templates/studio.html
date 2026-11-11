@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "video_parts.html" import video_grid, pagination %}
+{% from "ui_parts.html" import empty_icon %}
 {% block content %}
 <section class="page-heading"><div><p class="eyebrow">Ваш FoxTube</p><h1>Мои видео</h1></div><a class="primary-button" href="/upload">Загрузить видео</a></section>
 {% if videos['items'] %}
@@ -7,6 +8,6 @@
   {{ video_grid(videos['items'], own=true) }}
   {{ pagination(videos, '/studio') }}
 {% else %}
-  <section class="empty-state"><p class="empty-kicker">Начните свою историю</p><h2>Вы ещё не загрузили видео</h2><p class="empty-description">Выберите файл и добавьте название.<br>Мы подготовим видео для просмотра.</p><a class="text-link" href="/upload">Загрузить первое видео →</a></section>
+  <section class="empty-state">{{ empty_icon() }}<p class="empty-kicker">Начните свою историю</p><h2>Вы ещё не загрузили видео</h2><p class="empty-description">Выберите файл и добавьте название.<br>Мы подготовим видео для просмотра.</p><a class="text-link" href="/upload">Загрузить первое видео →</a></section>
 {% endif %}
 {% endblock %}

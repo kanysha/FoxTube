@@ -1,9 +1,11 @@
-"""Local capacity smoke test; not certification of the 4 CPU / 8 GB target."""
+"""Capacity smoke test with measured host resources, not a general SLA claim."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import struct
+import subprocess
 import threading
 import time
 from collections.abc import Iterator
@@ -86,9 +88,23 @@ print(total)
         )
 
     def run(self) -> None:
+        host = json.loads(
+            subprocess.check_output(
+                [
+                    "docker",
+                    "info",
+                    "--format",
+                    '{"cpus":{{.NCPU}},"memory_bytes":{{.MemTotal}}}',
+                ],
+                timeout=20,
+            )
+        )
+        self.report["host_resources"] = host
         self.report["limitations"] = [
-            "Docker Desktop has 10 logical CPUs and approximately 8 GB RAM; "
-            "this is not a dedicated 4 CPU / 8 GB server.",
+            "Measured resources describe the Docker host visible to this run; "
+            "a shared host or VM is not a dedicated production capacity guarantee.",
+            "The stdlib load generator runs on the machine invoking this "
+            "command; an external Internet path is not measured.",
             "Ten HTTP viewers fetch 64 KiB ranges every 200 ms, not ten "
             "interactive browsers or an Internet uplink benchmark.",
             "The 500 MiB input contains a real 45-second H.264 stream plus "
@@ -118,6 +134,63 @@ print(total)
         started = time.monotonic()
         stop = threading.Event()
         viewer_barrier = threading.Barrier(11)
+        resource_samples: list[dict[str, Any]] = []
+        api_latencies: list[float] = []
+        monitor_errors: list[str] = []
+        container_ids = self.compose("ps", "-q", "api", "worker", "nginx").split()
+        assert len(container_ids) == 3
+
+        def container_states() -> list[dict[str, Any]]:
+            rows = json.loads(
+                subprocess.check_output(
+                    ["docker", "inspect", *(value.decode() for value in container_ids)],
+                    timeout=20,
+                )
+            )
+            return [
+                {
+                    "name": row["Name"],
+                    "restarts": row["RestartCount"],
+                    "oom_killed": row["State"]["OOMKilled"],
+                    "running": row["State"]["Running"],
+                }
+                for row in rows
+            ]
+
+        initial_states = container_states()
+
+        def monitor() -> None:
+            client = Client(base)
+            try:
+                while not stop.is_set():
+                    request_started = time.monotonic()
+                    client.json("GET", "/api/v1/videos?page_size=1")
+                    api_latencies.append(time.monotonic() - request_started)
+                    output = subprocess.check_output(
+                        [
+                            "docker",
+                            "stats",
+                            "--no-stream",
+                            "--format",
+                            "{{json .}}",
+                            *(value.decode() for value in container_ids),
+                        ],
+                        timeout=20,
+                    )
+                    for line in output.splitlines():
+                        row = json.loads(line)
+                        resource_samples.append(
+                            {
+                                "elapsed_seconds": round(time.monotonic() - started, 2),
+                                "name": row["Name"],
+                                "cpu_percent": row["CPUPerc"],
+                                "memory_usage": row["MemUsage"],
+                                "network_io": row["NetIO"],
+                            }
+                        )
+                    stop.wait(2)
+            except Exception as error:
+                monitor_errors.append(type(error).__name__)
 
         def view() -> dict[str, Any]:
             client = Client(base)
@@ -155,6 +228,8 @@ print(total)
 
         samples = [baseline]
         overlap = False
+        monitoring = threading.Thread(target=monitor, daemon=True)
+        monitoring.start()
         with ThreadPoolExecutor(max_workers=12) as pool:
             viewers = [pool.submit(view) for _ in range(10)]
             try:
@@ -188,6 +263,7 @@ print(total)
                     upload.result()
             finally:
                 stop.set()
+                monitoring.join(timeout=25)
             viewer_results = [viewer.result() for viewer in viewers]
         peak = max(samples)
         growth = peak - baseline
@@ -198,8 +274,14 @@ print(total)
             "API RSS grew excessively during 500 MiB upload"
         )
         assert peak < 512 * 1024 * 1024, "API Python RSS exceeded 512 MiB"
+        assert not monitoring.is_alive(), "Resource monitor did not stop"
+        assert not monitor_errors, f"Resource monitor failed: {monitor_errors}"
+        assert len(resource_samples) >= 6 and len(api_latencies) >= 2
         for video_id in (background, large, other):
             self.ready(video_id)
+        final_states = container_states()
+        assert initial_states == final_states, "Application containers restarted"
+        assert all(row["running"] and not row["oom_killed"] for row in final_states)
         self.passed(
             "500 MiB streaming, two uploads, real encoder and ten HTTP viewers",
             started,
@@ -212,6 +294,10 @@ print(total)
             active_encoder_observed=True,
             viewers=viewer_results,
             all_uploads_ready=True,
+            api_requests=len(api_latencies),
+            api_max_latency_seconds=round(max(api_latencies), 3),
+            resource_samples=resource_samples,
+            container_states=final_states,
         )
         self.report["status"] = "passed"
         self.write_report()

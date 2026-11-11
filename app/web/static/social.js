@@ -1,6 +1,6 @@
 "use strict";
 
-(() => {
+window.FoxTubePage.register((page) => {
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
   const signedIn = Boolean(document.querySelector('[data-auth-form="logout"]'));
   const idPath = (id) => encodeURIComponent(id);
@@ -11,11 +11,12 @@
       headers["X-CSRF-Token"] = csrf;
       if (data !== undefined) headers["Content-Type"] = "application/json";
     }
-    const response = await fetch(url, {
+    const response = await page.fetch(url, {
       method, headers, credentials: "same-origin", mode: "same-origin",
       body: data === undefined ? undefined : JSON.stringify(data),
     });
     const body = response.status === 204 ? null : await response.json().catch(() => null);
+    page.check();
     if (!response.ok) {
       let message = "Не удалось выполнить запрос. Повторите позже.";
       if (response.status === 401) message = "Войдите в аккаунт и повторите действие.";
@@ -36,10 +37,12 @@
   };
   const errorRegion = (root) => root.querySelector("[data-social-error]");
   const clearError = (root) => {
+    if (!page.active) return;
     const region = errorRegion(root);
     if (region) { region.hidden = true; region.textContent = ""; }
   };
   const showError = (root, error) => {
+    if (!page.active) return;
     let region = errorRegion(root);
     if (!region) {
       region = element("p", "", "form-message");
@@ -53,14 +56,16 @@
   };
   const withButton = async (button, root, action) => {
     button.disabled = true;
+    button.setAttribute("aria-busy", "true");
     clearError(root);
     try { await action(); } catch (error) { showError(root, error); }
-    finally { button.disabled = false; }
+    finally { if (page.active) { button.disabled = false; button.removeAttribute("aria-busy"); } }
   };
 
   for (const mount of document.querySelectorAll("[data-channel-subscription]")) {
     const url = `/api/v1/channels/${idPath(mount.dataset.channelSubscription)}/subscription`;
     const render = (state) => {
+      if (!page.active) return;
       mount.replaceChildren();
       const row = element("div", undefined, "subscription-control");
       const count = element("span", `${state.subscribers_count} подписчиков`, "form-hint");
@@ -68,7 +73,7 @@
         const button = element("button", state.subscribed ? "Вы подписаны" : "Подписаться", state.subscribed ? "secondary-button" : "primary-button");
         button.type = "button";
         button.setAttribute("aria-pressed", String(state.subscribed));
-        button.addEventListener("click", () => withButton(button, mount, async () => {
+        page.listen(button, "click", () => withButton(button, mount, async () => {
           await api(url, state.subscribed ? "DELETE" : "PUT");
           render(await api(url));
         }));
@@ -100,9 +105,9 @@
       root.querySelector("[data-comments-count]").textContent = state.comments_count;
       if (like) { like.setAttribute("aria-pressed", String(liked)); like.disabled = false; }
     };
-    const loadComments = async (page = 1) => {
-      const response = await api(`${url}/comments?page=${page}`);
-      if (page === 1) list.replaceChildren();
+    const loadComments = async (number = 1) => {
+      const response = await api(`${url}/comments?page=${number}`);
+      if (number === 1) list.replaceChildren();
       for (const comment of response.items) {
         const article = element("article", undefined, "comment");
         article.dataset.commentId = comment.id;
@@ -116,7 +121,7 @@
         if (comment.can_delete) {
           const button = element("button", "Удалить", "comment-delete");
           button.type = "button";
-          button.addEventListener("click", () => withButton(button, root, async () => {
+          page.listen(button, "click", () => withButton(button, root, async () => {
             await api(`/api/v1/comments/${idPath(comment.id)}`, "DELETE");
             await Promise.all([loadComments(), loadStats()]);
           }));
@@ -124,32 +129,33 @@
         }
         list.append(article);
       }
-      commentsPage = page;
+      commentsPage = number;
       empty.textContent = "Пока нет комментариев. Будьте первым.";
       empty.hidden = response.total > 0;
-      more.hidden = page * response.page_size >= response.total;
+      more.hidden = number * response.page_size >= response.total;
     };
     loadStats().catch((error) => showError(root, error));
-    loadComments().catch((error) => { empty.hidden = true; showError(root, error); });
-    like?.addEventListener("click", () => withButton(like, root, async () => {
+    loadComments().catch((error) => { if (page.active) { empty.hidden = true; showError(root, error); } });
+    page.listen(like, "click", () => withButton(like, root, async () => {
       await api(`${url}/like`, liked ? "DELETE" : "PUT");
       await loadStats();
     }));
-    more.addEventListener("click", () => withButton(more, root, () => loadComments(commentsPage + 1)));
+    page.listen(more, "click", () => withButton(more, root, () => loadComments(commentsPage + 1)));
     const form = root.querySelector("[data-comment-form]");
-    form?.addEventListener("submit", (event) => {
+    page.listen(form, "submit", (event) => {
       event.preventDefault();
       const button = form.querySelector('button[type="submit"]');
       const body = form.elements.namedItem("body");
       withButton(button, root, async () => {
         await api(`${url}/comments`, "POST", { body: body.value });
         body.value = "";
+        page.clean(form);
         await Promise.all([loadComments(), loadStats()]);
       });
     });
     const saveToggle = root.querySelector("[data-save-toggle]");
     const saveForm = root.querySelector("[data-save-playlist]");
-    saveToggle?.addEventListener("click", () => withButton(saveToggle, root, async () => {
+    page.listen(saveToggle, "click", () => withButton(saveToggle, root, async () => {
       saveForm.hidden = !saveForm.hidden;
       saveToggle.setAttribute("aria-expanded", String(!saveForm.hidden));
       if (saveForm.hidden) return;
@@ -165,13 +171,14 @@
         select.append(option);
       }
     }));
-    saveForm?.addEventListener("submit", (event) => {
+    page.listen(saveForm, "submit", (event) => {
       event.preventDefault();
       const button = saveForm.querySelector('button[type="submit"]');
       withButton(button, root, async () => {
         const playlistId = saveForm.elements.namedItem("playlist_id").value;
         if (!playlistId) throw new Error("Выберите или создайте плейлист.");
         await api(`/api/v1/playlists/${idPath(playlistId)}/items/${idPath(videoId)}`, "PUT");
+        page.clean(saveForm);
         const result = saveForm.querySelector("[data-save-result]");
         const link = element("a", "Открыть плейлист", "text-link");
         link.href = `/playlists/${idPath(playlistId)}`;
@@ -183,7 +190,7 @@
 
   for (const form of document.querySelectorAll("[data-playlist-create], [data-playlist-edit]")) {
     const playlistId = form.dataset.playlistEdit;
-    form.addEventListener("submit", (event) => {
+    page.listen(form, "submit", (event) => {
       event.preventDefault();
       const button = form.querySelector('button[type="submit"]');
       withButton(button, form, async () => {
@@ -193,7 +200,7 @@
       });
     });
     const remove = form.querySelector("[data-playlist-delete]");
-    remove?.addEventListener("click", () => {
+    page.listen(remove, "click", () => {
       if (!window.confirm("Удалить плейлист? Видео останутся на сайте.")) return;
       withButton(remove, form, async () => {
         await api(`/api/v1/playlists/${idPath(playlistId)}`, "DELETE");
@@ -204,10 +211,10 @@
   for (const root of document.querySelectorAll("[data-playlist-items]")) {
     for (const button of root.querySelectorAll("[data-remove-playlist-video]")) {
       const item = button.closest(".playlist-edit-item");
-      button.addEventListener("click", () => withButton(button, item, async () => {
+      page.listen(button, "click", () => withButton(button, item, async () => {
         await api(`/api/v1/playlists/${idPath(root.dataset.playlistItems)}/items/${idPath(button.dataset.removePlaylistVideo)}`, "DELETE");
         window.location.reload();
       }));
     }
   }
-})();
+});

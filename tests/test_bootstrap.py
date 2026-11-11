@@ -175,3 +175,39 @@ def test_existing_custom_repository_files_are_preserved(
     assert original.read_text() == "user-owned configuration"
     assert not (source if target == key else key).exists()
     _assert_no_temporary_files(apt)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ["--no-lan", "--listen-all"],
+        ["--no-lan", "--allow-any-source"],
+        ["--no-lan", "--allow-subnet", "10.8.0.62/32"],
+        ["--no-lan", "--tcp-mss", "1200"],
+        ["--allow-any-source", "--allow-subnet", "10.8.0.62/32"],
+        ["--allow-subnet"],
+        ["--allow-subnet", "--listen-all"],
+        ["--tcp-mss"],
+        ["--tcp-mss", "--listen-all"],
+        ["--tcp-mss", "535"],
+        ["--tcp-mss", "1461"],
+        ["--tcp-mss", "01200"],
+        ["--tcp-mss", "1200; true"],
+    ],
+)
+def test_invalid_network_option_combinations_fail_before_docker(
+    tmp_path: Path, options: list[str]
+) -> None:
+    # A real parser run must stop before inspecting Docker or writing configuration.
+    result = subprocess.run(
+        ["/bin/bash", str(BOOTSTRAP), *options],
+        cwd=tmp_path,
+        env={"PATH": os.defpath},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "cannot be combined" in result.stderr or "requires" in result.stderr
+    assert not list(tmp_path.iterdir())

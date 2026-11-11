@@ -6,15 +6,19 @@
 <section class="video-grid" aria-label="{% if own %}Мои видео{% else %}Видео{% endif %}">
   {% for video in items %}
   <article class="video-card"{% if own %} data-studio-video="{{ video.id }}" data-video-status="{{ video.status }}"{% endif %}>
-    <a class="video-thumbnail" href="/watch/{{ video.id }}" aria-label="Смотреть: {{ video.title }}">
-      {% if video.poster_url %}<img src="{{ video.poster_url }}" alt="" loading="lazy" width="640" height="360">{% else %}<span class="thumbnail-placeholder" aria-hidden="true">▶</span>{% endif %}
+    <a class="video-thumbnail"{% if video.playback_url %} data-preview-src="{{ video.playback_url }}"{% endif %} href="/watch/{{ video.id }}" aria-label="Смотреть: {{ video.title }}">
+      {% if video.poster_url %}<img src="{{ video.poster_url }}" alt="" loading="lazy" width="640" height="360">{% elif video.status in ['QUEUED', 'PROCESSING'] %}<span class="fox-loader fox-loader-pulse thumbnail-loader" aria-hidden="true"></span>{% else %}<span class="thumbnail-placeholder" aria-hidden="true">▶</span>{% endif %}
       {% if video.duration %}<span class="video-duration">{{ (video.duration // 60) | int }}:{{ '%02d' | format((video.duration % 60) | int) }}</span>{% endif %}
     </a>
+    {% if video.playback_url %}<button class="thumbnail-mini-button" type="button" hidden data-preview-mini="{{ video.id }}" aria-label="Открыть в миниплеере: {{ video.title }}" title="Открыть в миниплеере"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM12 11h7v6h-7z"/></svg></button>{% endif %}
     <div class="video-card-info">
-      <h2><a href="/watch/{{ video.id }}">{{ video.title }}</a></h2>
-      <p class="video-channel-name"><a href="/channels/{{ video.channel_id }}">{{ video.channel_name }}</a></p>
-      <p class="video-card-meta"><time datetime="{{ video.created_at }}">{{ video.created_at[:10] }}</time>{% if video.visibility == 'private' %}<span class="privacy-badge">Приватное</span>{% endif %}</p>
-      {% if own %}<p class="video-status" data-status-label>{{ status_label(video.status) }}</p><a class="manage-video-link" href="/watch/{{ video.id }}">Открыть и управлять <span aria-hidden="true">→</span></a>{% endif %}
+      <a class="channel-avatar video-card-avatar" href="/channels/{{ video.channel_id }}" aria-label="Канал: {{ video.channel_name }}">{{ video.channel_name[:1] | upper }}</a>
+      <div class="video-card-details">
+        <h2><a href="/watch/{{ video.id }}">{{ video.title }}</a></h2>
+        <p class="video-channel-name"><a href="/channels/{{ video.channel_id }}">{{ video.channel_name }}</a></p>
+        <p class="video-card-meta"><time datetime="{{ video.created_at }}">{{ video.created_at[:10] }}</time>{% if video.visibility == 'private' %}<span class="privacy-badge">Приватное</span>{% endif %}</p>
+        {% if own %}<p class="video-status" data-status-label>{{ status_label(video.status) }}</p><a class="manage-video-link" href="/watch/{{ video.id }}">Открыть и управлять <span aria-hidden="true">→</span></a>{% endif %}
+      </div>
     </div>
   </article>
   {% endfor %}

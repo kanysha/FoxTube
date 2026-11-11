@@ -1,0 +1,112 @@
+.fox-player { position: relative; isolation: isolate; color: #fff; color-scheme: dark; }
+.fox-player [hidden] { display: none !important; }
+.fox-player.is-enhanced .video-player { cursor: pointer; }
+.fox-player:focus-visible { outline: 3px solid #e99c56; outline-offset: 4px; }
+.fox-player-center { position: absolute; z-index: 2; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 104px; height: 88px; padding: 12px; border: 0; border-radius: 8px; background: transparent; }
+.fox-player-center img { display: block; width: 80px; height: auto; object-fit: contain; }
+.fox-player-loading { position: absolute; z-index: 3; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: rgb(12 13 16 / 78%); pointer-events: none; }
+.fox-player-loading .fox-loader { width: 84px; height: 84px; }
+.fox-player-message { position: absolute; z-index: 4; top: 12px; left: 12px; right: 12px; max-width: 560px; margin: 0 auto; padding: 10px 14px; border-radius: 8px; background: rgb(20 21 25 / 94%); color: #fff; font-size: 13px; line-height: 1.5; pointer-events: none; }
+.fox-player-controls { position: absolute; z-index: 3; right: 0; bottom: 0; left: 0; padding: 36px 18px 10px; background: linear-gradient(transparent, rgb(0 0 0 / 85%)); opacity: 1; transition: opacity .18s; }
+.fox-player.is-controls-hidden .fox-player-controls { opacity: 0; pointer-events: none; }
+.fox-player.is-controls-hidden .video-player { cursor: none; }
+.fox-player-toolbar { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.fox-player-button { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: #fff; }
+.fox-player-button:hover { background: rgb(255 255 255 / 17%); }
+.fox-player-button svg { width: 24px; height: 24px; fill: currentColor; stroke: none; }
+.fox-player-button .fox-player-sound-lines { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fox-player button:focus-visible, .fox-player input:focus-visible { outline: 2px solid #ffb886; outline-offset: 2px; }
+.fox-player-time { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fox-player-spacer { flex: 1; }
+.fox-player-button:disabled { cursor: default; opacity: .4; }
+.fox-player-button[aria-pressed="true"], .fox-player-button[aria-expanded="true"] { box-shadow: inset 0 -3px #ed573b; }
+.fox-player-feedback { position: absolute; z-index: 4; top: 16px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); padding: 8px 14px; border-radius: 6px; background: rgb(0 0 0 / 75%); color: white; font-size: 13px; text-align: center; pointer-events: none; }
+.fox-player-settings { position: absolute; z-index: 5; right: 14px; bottom: 86px; width: min(340px, calc(100% - 28px)); max-height: calc(100% - 100px); overflow-y: auto; overscroll-behavior: contain; padding: 12px; border: 1px solid #555; border-radius: 12px; background: rgb(24 24 24 / 97%); box-shadow: 0 4px 24px #0006; font-size: 13px; }
+.fox-player-settings label { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.fox-player-settings select { min-width: 0; max-width: 63%; min-height: 36px; padding: 5px; border: 1px solid #666; border-radius: 6px; background: #292929; color: #fff; font: inherit; }
+.fox-player-settings input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ed573b; }
+.fox-player-settings .fox-player-caption-file { display: grid; gap: 4px; margin-top: 8px; }
+.fox-player-caption-file input { width: 100%; font-size: 12px; }
+.fox-player-hint { margin: 6px 0 10px; color: #c5c5c5; font-size: 11px; line-height: 1.55; }
+.fox-player-settings-action, .fox-player-settings summary { display: block; width: 100%; min-height: 44px; padding: 10px 6px; border: 0; border-radius: 6px; background: transparent; color: #fff; text-align: left; font: inherit; cursor: pointer; }
+.fox-player-settings-action:hover, .fox-player-settings summary:hover { background: #ffffff1a; }
+.fox-player-settings-action[aria-pressed="true"] { color: #ffb886; }
+.fox-player-settings :focus-visible { outline: 2px solid #ffb886; outline-offset: -2px; }
+.fox-player-seek-preview { position: absolute; bottom: 30px; transform: translateX(-50%); padding: 4px 7px; border-radius: 4px; background: #111d; font-size: 12px; pointer-events: none; }
+.watch-page.is-theater { max-width: none; }
+.fox-player.is-theater { aspect-ratio: 21 / 9; }
+.fox-player.is-theater .video-player { max-height: 74vh; }
+.fox-player video::cue { background: rgb(0 0 0 / 80%); color: #fff; }
+.fox-player-volume { width: 72px; height: 32px; margin: 0 8px 0 0; padding: 0; accent-color: #fff; cursor: pointer; }
+.fox-player-timeline { position: relative; height: 24px; }
+.fox-player-track { position: absolute; top: 10px; right: 0; left: 0; height: 4px; overflow: hidden; border-radius: 5px; background: rgb(255 255 255 / 25%); }
+.fox-player-buffer, .fox-player-progress { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: rgb(255 255 255 / 44%); }
+.fox-player-progress { background: #ed573b; }
+.fox-player-seek { position: relative; display: block; width: 100%; height: 24px; margin: 0; padding: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+.fox-player-seek::-webkit-slider-runnable-track { height: 4px; background: transparent; }
+.fox-player-seek::-moz-range-track { height: 4px; background: transparent; }
+.fox-player-seek::-webkit-slider-thumb { width: 13px; height: 13px; margin-top: -4.5px; border: none; border-radius: 50%; appearance: none; -webkit-appearance: none; background: #ed573b; }
+.fox-player-seek::-moz-range-thumb { width: 13px; height: 13px; border: none; border-radius: 50%; background: #ed573b; }
+.fox-player:fullscreen { width: 100%; height: 100%; max-height: none; margin: 0; border-radius: 0; aspect-ratio: auto; }
+.fox-player:fullscreen .video-player { width: 100%; height: 100%; max-height: none; }
+.fox-player:fullscreen .fox-player-controls { padding-right: max(18px, env(safe-area-inset-right)); padding-bottom: max(10px, env(safe-area-inset-bottom)); padding-left: max(18px, env(safe-area-inset-left)); }
+@media (max-width: 599px) {
+  .fox-player-controls { padding: 25px 10px 4px; }
+  .fox-player-toolbar { gap: 2px; }
+  .fox-player-volume { width: 40px; margin-right: 4px; }
+  .fox-player-time { font-size: 11px; }
+  .fox-player-settings { right: 8px; bottom: 76px; width: calc(100% - 16px); max-height: calc(100% - 82px); padding: 8px 12px; border-radius: 8px; }
+  .fox-player-center { width: 88px; height: 72px; }
+  .fox-player-center img { width: 64px; }
+  .fox-player-message { top: 7px; right: 7px; left: 7px; font-size: 11px; padding: 7px 10px; }
+}
+@media (max-width: 359px) { .fox-player-volume { display: none; } .fox-player-toolbar { gap: 0; } .fox-player-controls { padding-right: 6px; padding-left: 6px; } }
+@media (pointer: coarse) { .fox-player.is-theater { aspect-ratio: 16 / 9; } }
+@media (prefers-reduced-motion: reduce) { .fox-player-controls { transition: none; } }
+
+/* The same connected video element moves between the watch slot and this host. */
+.mini-player[hidden], .mini-navigation-error[hidden] { display: none; }
+.mini-player { position: fixed; z-index: 15; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); width: 400px; max-width: calc(100vw - 32px); border: 1px solid #444; border-radius: 12px; background: #181818; color: white; box-shadow: 0 8px 32px #0006; }
+.mini-player-heading { display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px 0 12px; }
+.mini-player-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: white; font-size: 13px; }
+.mini-player-action { flex: none; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: white; font-size: 24px; }
+.mini-player-action:hover { background: #ffffff26; }
+.mini-player :focus-visible { outline: 2px solid #ffb886; outline-offset: -2px; }
+.mini-player .fox-player { width: 100%; margin: 0; max-height: calc(100dvh - 150px); min-height: 172px; aspect-ratio: 16 / 9; overflow: visible; border-radius: 0 0 12px 12px; background: black; }
+.mini-player .video-player { width: 100%; height: 100%; max-height: none; border-radius: 0 0 12px 12px; object-fit: contain; }
+.mini-player .fox-player-controls { padding: 20px 8px 4px; border-radius: 0 0 12px 12px; }
+.mini-player .fox-player-toolbar { flex-wrap: wrap; gap: 2px; }
+.mini-player .fox-player-time { order: -1; flex-basis: 100%; font-size: 11px; }
+.mini-player .fox-player-spacer, .mini-player [data-fox-mini], .mini-player [data-fox-theater] { display: none; }
+.mini-player .fox-player-volume { display: block; flex: 1; min-width: 28px; max-width: 72px; width: 40px; margin: 0; }
+.mini-player .fox-player-settings { right: 0; bottom: calc(100% + 44px); width: min(340px, 100%); max-height: min(340px, calc(100dvh - 360px)); min-height: 100px; }
+.mini-player .fox-player-center { display: none; }
+.mini-player .fox-player-loading { width: 64px; height: 64px; }
+.mini-player .fox-player-loading .fox-loader { width: 52px; height: 52px; }
+.mini-player .fox-player:fullscreen { max-height: none; min-height: 0; border-radius: 0; }
+.mini-player .fox-player:fullscreen .fox-player-center { display: grid; }
+.mini-player .fox-player:fullscreen .fox-player-settings { right: 12px; bottom: 120px; max-height: calc(100% - 140px); }
+.fox-player-unmute { position: absolute; z-index: 4; top: 8px; left: 8px; min-height: 36px; padding: 6px 12px; border: 1px solid #ffffff80; border-radius: 6px; background: #181818e8; color: white; font-size: 12px; }
+.player-return-link { display: grid; min-height: 180px; place-items: center; padding: 24px; border: 1px solid #ddd; border-radius: 12px; background: #f6f6f6; }
+.player-return-link[hidden] { display: none; }
+.mini-navigation-error { position: fixed; z-index: 45; left: 50%; top: 76px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); margin: 0; padding: 12px 16px; border-radius: 8px; background: #252525; color: white; font-size: 13px; box-shadow: 0 4px 20px #0003; }
+body.has-mini-player { padding-bottom: var(--mini-player-height, 320px); }
+.video-card { position: relative; }
+.thumbnail-mini-button { position: absolute; z-index: 3; top: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 8px; background: #181818de; color: white; opacity: 0; }
+.thumbnail-mini-button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; }
+.video-card:hover .thumbnail-mini-button, .video-card:focus-within .thumbnail-mini-button { opacity: 1; }
+@media (hover: none), (pointer: coarse) { .thumbnail-mini-button { opacity: 1; } }
+@media (max-width: 599px) {
+  .mini-player { right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); max-width: calc(100vw - 16px); }
+}
+@media (max-width: 359px) {
+  .fox-player-toolbar { flex-wrap: wrap; }
+  .fox-player-time { order: -1; flex-basis: 100%; }
+}
+@media (max-height: 600px) {
+  .mini-player .fox-player-settings { top: auto; bottom: 0; right: 0; max-height: calc(100dvh - 100px); min-height: 0; }
+}
+
+.thumbnail-mini-button[hidden] { display: none; }
+
+.mini-player-action svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }

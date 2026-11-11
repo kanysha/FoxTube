@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "video_parts.html" import video_grid, pagination %}
+{% from "ui_parts.html" import empty_icon %}
 {% block content %}
 <section class="content-heading"><p class="eyebrow">Ваша лента</p><h1>Подписки</h1><p>Видео каналов, на которые вы подписаны.</p></section>
 {% if channels['items'] %}
@@ -8,6 +9,6 @@
 </section>
 {% if channels.page > 1 or channels.total > channels.page_size %}<nav class="pagination" aria-label="Страницы подписок">{% if channels.page > 1 %}<a class="secondary-button" href="/subscriptions?channels_page={{ channels.page - 1 }}&amp;page={{ videos.page }}">← Каналы</a>{% endif %}<span>Каналы · страница {{ channels.page }}</span>{% if channels.page * channels.page_size < channels.total %}<a class="secondary-button" href="/subscriptions?channels_page={{ channels.page + 1 }}&amp;page={{ videos.page }}">Каналы →</a>{% endif %}</nav>{% endif %}
 {% endif %}
-{% if videos['items'] %}{{ video_grid(videos['items']) }}{% else %}<section class="empty-state"><h2>В ленте пока нет видео</h2><p>Подпишитесь на канал на странице просмотра. В ленту попадают только доступные вам видео.</p><a class="secondary-button" href="/">Открыть главную</a></section>{% endif %}
+{% if videos['items'] %}{{ video_grid(videos['items']) }}{% else %}<section class="empty-state">{{ empty_icon('subscriptions') }}<h2>В ленте пока нет видео</h2><p>Подпишитесь на канал на странице просмотра. В ленту попадают только доступные вам видео.</p><a class="secondary-button" href="/">Открыть главную</a></section>{% endif %}
 {{ pagination(videos, '/subscriptions') }}
 {% endblock %}

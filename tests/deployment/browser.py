@@ -1,10 +1,13 @@
-"""Chrome acceptance against an already running loopback FoxTube deployment.
+"""Chrome acceptance against an already running local/LAN FoxTube deployment.
 
-Run inside the existing Dockerfile.browser image with host networking. Mount the
+Run inside the existing Dockerfile.browser image. Host networking is needed for
+a loopback target; a LAN target uses normal container egress. Mount the
 repository's tests read-only at /tests and a writable artifacts directory at
 /artifacts. Set PYTHONPATH=/tests/browser, FOXTUBE_TEST_BASE_URL (default
-http://localhost:8080) and optionally FOXTUBE_BROWSER_ARTIFACTS (default
-/artifacts/ubuntu); execute python /tests/deployment/browser.py.
+http://localhost:8080; loopback/RFC1918 IPv4 only) and optionally
+FOXTUBE_BROWSER_ARTIFACTS (default /artifacts/ubuntu); execute
+python /tests/deployment/browser.py. The runtime's public origin must match the
+chosen origin; this runner never changes server configuration or bypasses CSRF.
 
 No Compose, database access, staff fixture or test environment is required.
 Creates four ordinary accounts and two synthetic videos through the UI; their
@@ -20,6 +23,7 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import uuid4
 
+from network import validate_origin
 from playwright.sync_api import Browser, BrowserContext, Page, expect, sync_playwright
 from privacy import capture, check_lists, check_media, play_and_seek
 from run import assert_no_overflow, check_social, create_video, require
@@ -121,7 +125,7 @@ def check_private(
         video_id = video["id"]
         progress["video_id"] = video_id
         watch_path = f"/watch/{video_id}"
-        expect(owner.locator(".privacy-badge")).to_have_text("Приватное")
+        expect(owner.locator(".watch-heading .privacy-badge")).to_have_text("Приватное")
         expect(owner.locator("[data-grants-empty]")).to_have_text(
             "Разрешения пока не выданы."
         )
@@ -211,20 +215,13 @@ def check_private(
 
 
 def main() -> int:
-    base_url = os.environ.get("FOXTUBE_TEST_BASE_URL", "http://localhost:8080").rstrip(
-        "/"
-    )
-    parsed = urlsplit(base_url)
-    require(
-        parsed.scheme in {"http", "https"}
-        and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
-        and parsed.username is None
-        and parsed.password is None
-        and not parsed.path
-        and not parsed.query
-        and not parsed.fragment,
-        "Deployment browser runner requires a loopback origin without credentials",
-    )
+    try:
+        base_url = validate_origin(
+            os.environ.get("FOXTUBE_TEST_BASE_URL", "http://localhost:8080")
+        )
+    except ValueError:
+        print("Deployment Chrome: failed; phase=origin_validation")
+        return 1
     artifacts = Path(os.environ.get("FOXTUBE_BROWSER_ARTIFACTS", "/artifacts/ubuntu"))
     artifacts.mkdir(parents=True, exist_ok=True)
     report: dict[str, Any] = {
@@ -287,7 +284,9 @@ def main() -> int:
                     report["video_id"] = video["id"]
                     report["phase"] = "public_playback"
                     report["playback"] = play_and_seek(page)
-                    duration = page.locator("video").evaluate("video => video.duration")
+                    duration = page.locator("[data-fox-player] video").evaluate(
+                        "video => video.duration"
+                    )
                     require(9.5 <= duration <= 10.5, "Wrong deployment video duration")
                     report["duration"] = duration
                     report["phase"] = "social"
@@ -297,7 +296,7 @@ def main() -> int:
                     assert_no_overflow(page)
                     capture(page, artifacts / "watch-desktop.png")
                     mobile(page)
-                    player_box = page.locator("video").bounding_box()
+                    player_box = page.locator("[data-fox-player] video").bounding_box()
                     require(
                         player_box is not None and player_box["width"] >= 388,
                         "Deployment mobile player is narrower than the viewport",
