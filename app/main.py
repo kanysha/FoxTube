@@ -1,10 +1,10 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.staticfiles import StaticFiles
 
@@ -22,6 +22,12 @@ from app.social.routes import router as social_router
 from app.social.web import router as social_web_router
 from app.videos.routes import media_router
 from app.videos.routes import router as video_router
+from app.web.errors import (
+    database_error,
+    http_error,
+    unexpected_error,
+    validation_error,
+)
 from app.web.routes import WEB_ROOT
 from app.web.routes import router as web_router
 
@@ -57,23 +63,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application.add_middleware(SecurityHeadersMiddleware)
 
-    @application.exception_handler(RequestValidationError)
-    async def validation_error(
-        request: Request, error: RequestValidationError
-    ) -> JSONResponse:
-        # Pydantic's input/context can contain the submitted password.
-        details = [
-            {key: item[key] for key in ("loc", "msg", "type")}
-            for item in error.errors()
-        ]
-        return JSONResponse({"detail": details}, status_code=422)
-
-    @application.exception_handler(SQLAlchemyError)
-    async def database_error(request: Request, error: SQLAlchemyError) -> JSONResponse:
-        return JSONResponse(
-            {"detail": "Сервис временно недоступен. Повторите позже."},
-            status_code=503,
-        )
+    application.exception_handler(HTTPException)(http_error)
+    application.exception_handler(RequestValidationError)(validation_error)
+    application.exception_handler(SQLAlchemyError)(database_error)
+    application.exception_handler(Exception)(unexpected_error)
 
     application.include_router(health_router)
     application.include_router(auth_router)

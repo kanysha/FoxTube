@@ -35,9 +35,24 @@ def check_media(
             response.status == (200 if allowed else 404),
             f"Private video API ACL failed for {suffix or 'metadata'}",
         )
+        require(
+            response.headers.get("content-type", "").startswith("application/json"),
+            "Private video API stopped returning JSON",
+        )
         response.dispose()
     watch = context.request.get(f"{base_url}/watch/{video_id}")
     require(watch.status == (200 if allowed else 404), "Private watch HTML ACL failed")
+    require(
+        watch.headers.get("content-type", "").startswith("text/html"),
+        "Private watch error did not return the site HTML",
+    )
+    if not allowed:
+        require(
+            'data-error-status="404"' in watch.text()
+            and "Страница недоступна" in watch.text()
+            and f"/media/videos/{video_id}/" not in watch.text(),
+            "Private watch error leaks media or omits the common404 page",
+        )
     watch.dispose()
     for kind in ("playback", "poster"):
         url = f"{base_url}/media/videos/{video_id}/{kind}"
@@ -51,6 +66,13 @@ def check_media(
                 response.status == (expected if allowed else 404),
                 f"Private {kind} {method} {'Range' if headers else ''} ACL failed",
             )
+            if not allowed:
+                require(
+                    response.headers.get("content-type", "").startswith(
+                        "application/json"
+                    ),
+                    "Private media error stopped returning JSON",
+                )
             if allowed:
                 require(
                     "no-store" in response.headers.get("cache-control", ""),
@@ -214,6 +236,20 @@ def check_privacy(
         )
         for page in (first, second, outsider, guest):
             check_media(page.context, base_url, video_id, allowed=False)
+        for label, page in (("outsider", outsider), ("guest", guest)):
+            response = page.goto(base_url + watch_path)
+            require(response is not None and response.status == 404, "Private HTML ACL")
+            expect(page.get_by_role("heading", level=1)).to_have_text(
+                "Страница недоступна"
+            )
+            expect(page.locator('[data-error-status="404"]')).to_be_visible()
+            require(
+                video["title"] not in page.locator("#main-content").inner_text(),
+                "Private title leaked in the error page",
+            )
+            page.screenshot(
+                path=artifacts / f"private-denied-{label}.png", full_page=True
+            )
 
         for email in (first_email, second_email):
             owner.get_by_label("Email пользователя", exact=True).fill(email)

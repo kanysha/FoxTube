@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from 'ui_parts.html' import empty_icon %}
+{% block content %}
+<section class="empty-state error-page" data-error-status="{{ error_status }}" aria-labelledby="page-title">
+  {{ empty_icon() }}
+  <p class="empty-kicker">Ошибка {{ error_status }}</p>
+  <h1 id="page-title">{{ error_title }}</h1>
+  <p class="empty-description">{{ error_message }}</p>
+  <div class="error-actions">
+    {% if error_status == 401 %}<a class="primary-button" href="/login">Войти</a>{% endif %}
+    <a class="{% if error_status == 401 %}secondary{% else %}primary{% endif %}-button" href="/">На главную</a>
+    <a class="secondary-button" href="/search">Найти видео</a>
+  </div>
+</section>
+{% endblock %}

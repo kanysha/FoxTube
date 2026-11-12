@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import uuid4
 
+from errors import check_error_pages
 from experience import check_experience
 from lifecycle import check_lifecycle
 from miniplayer import check_miniplayer, remember_video, same_video
@@ -344,6 +345,9 @@ def main() -> None:
                     "video => video.currentTime"
                 )
                 player.evaluate("video => video.pause()")
+                report["error_pages"] = check_error_pages(
+                    browser, page, base_url, watch_path, artifacts
+                )
                 report["styled_player"] = check_player(
                     browser, page, base_url, watch_path, artifacts, errors
                 )
