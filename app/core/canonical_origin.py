@@ -14,8 +14,13 @@ class CanonicalOriginMiddleware:
         self.app = app
         self.origin = str(settings.public_origin).rstrip("/")
         self.host = settings.public_origin.host
+        self.scheme = settings.public_origin.scheme
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            # TLS terminates at Nginx. Build router redirects from the configured
+            # public scheme, never from untrusted forwarding headers.
+            scope = {**scope, "scheme": self.scheme}
         if scope["type"] == "http" and scope["method"] in {"GET", "HEAD"}:
             headers = Headers(scope=scope)
             host = URL(scope=scope).hostname

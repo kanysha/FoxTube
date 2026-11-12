@@ -6,7 +6,6 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from starlette.staticfiles import StaticFiles
 
 from app.auth.routes import router as auth_router
 from app.channels.routes import router as channel_router
@@ -30,6 +29,7 @@ from app.web.errors import (
 )
 from app.web.routes import WEB_ROOT
 from app.web.routes import router as web_router
+from app.web.static_files import PublicStaticFiles
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -61,7 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_middleware(
         TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts
     )
-    application.add_middleware(SecurityHeadersMiddleware)
+    application.add_middleware(SecurityHeadersMiddleware, settings=settings)
 
     application.exception_handler(HTTPException)(http_error)
     application.exception_handler(RequestValidationError)(validation_error)
@@ -79,6 +79,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(web_router)
     application.include_router(social_web_router)
     application.mount(
-        "/static", StaticFiles(directory=str(WEB_ROOT / "static")), name="static"
+        "/static", PublicStaticFiles(directory=str(WEB_ROOT / "static")), name="static"
     )
     return application

@@ -147,6 +147,15 @@ h1 { margin: 0; font-size: 28px; line-height: 1.25; letter-spacing: -.8px; font-
 .auth-switch a { display: inline-block; color: #b83727; font-weight: 600; }
 .auth-switch a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .account-card { max-width: 720px; margin-top: 30px; padding: 32px; border: 1px solid var(--line); border-radius: 20px; background: #fff; box-shadow: var(--shadow-card); }
+.account-security h2 { margin: 0 0 12px; font-size: 21px; }
+.session-list { list-style: none; margin: 20px 0; padding: 0; }
+.session-list li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.session-list li > div { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.session-list time, .session-list small { color: var(--muted); font-size: 13px; }
+.session-current { color: #257346; font-size: 13px; font-weight: 600; }
+.session-pagination { flex-wrap: wrap; }
+.session-pagination [hidden] { display: none; }
+.form-message.is-success { color: #205d3b; background: #edf7ef; }
 .account-summary { display: flex; align-items: center; gap: 18px; min-width: 0; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
 .account-summary > div { min-width: 0; }
 .account-avatar { display: grid; place-items: center; flex: none; width: 60px; height: 60px; border-radius: 50%; background: var(--accent-soft); color: #bd3b29; font-size: 25px; font-weight: 650; }

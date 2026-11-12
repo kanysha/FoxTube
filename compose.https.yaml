@@ -1,0 +1,24 @@
+# Requires Docker Compose >= 2.24.4 (!override replaces the HTTP publication).
+services:
+  nginx:
+    ports: !override
+      - "${FOXTUBE_BIND:-127.0.0.1}:${FOXTUBE_TLS_PORT:-443}:8443"
+    volumes:
+      - type: bind
+        source: ./deploy/nginx/nginx.https.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${FOXTUBE_TLS_CERT:?Set the absolute path to the TLS certificate chain}
+        target: /etc/nginx/tls/fullchain.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${FOXTUBE_TLS_KEY:?Set the absolute path to the TLS private key}
+        target: /etc/nginx/tls/privkey.pem
+        read_only: true
+        bind:
+          create_host_path: false

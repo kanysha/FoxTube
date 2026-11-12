@@ -73,7 +73,11 @@ def error_page(
         },
     )
     # The generic 500 handler runs outside the regular middleware stack.
-    set_security_headers(response.headers, request.url.path)
+    set_security_headers(
+        response.headers,
+        request.url.path,
+        public_https=request.app.state.settings.public_origin.scheme == "https",
+    )
     return response
 
 
@@ -114,5 +118,9 @@ def unexpected_error(request: Request, error: Exception) -> Response:
     response = JSONResponse(
         {"detail": "Не удалось выполнить запрос. Повторите позже."}, status_code=500
     )
-    set_security_headers(response.headers, request.url.path)
+    set_security_headers(
+        response.headers,
+        request.url.path,
+        public_https=request.app.state.settings.public_origin.scheme == "https",
+    )
     return response

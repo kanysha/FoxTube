@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi import Path as PathParameter
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -113,6 +113,28 @@ def login(request: Request) -> HTMLResponse | RedirectResponse:
 @router.get("/register", response_class=HTMLResponse, response_model=None)
 def register(request: Request) -> HTMLResponse | RedirectResponse:
     return auth_page(request, "register.html", "Регистрация")
+
+
+@router.get("/password/{action}", response_class=HTMLResponse)
+def password_page(request: Request, action: str) -> HTMLResponse:
+    if action not in {"forgot", "reset"}:
+        raise HTTPException(404, "Страница не найдена.")
+    state = ensure_session(request)
+    response = templates.TemplateResponse(
+        request=request,
+        name="password.html",
+        context={
+            "page_title": "Восстановление пароля",
+            "active_page": "",
+            "query": "",
+            "reset_password": action == "reset",
+            **viewer_context(state),
+        },
+    )
+    if state.issued:
+        set_session_cookie(response, state, request.app.state.settings)
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 @router.get("/account", response_class=HTMLResponse, response_model=None)

@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import uuid4
 
+from account_security import check_account_security
 from errors import check_error_pages
 from experience import check_experience
 from lifecycle import check_lifecycle
@@ -114,13 +115,20 @@ def check_auth_forms(browser: Browser, base_url: str) -> dict[str, str]:
                     requests.append(request.method + " " + urlsplit(request.url).path)
 
             page.on("request", record)
-            page.get_by_role("button", name="Создать аккаунт", exact=True).click()
-            page.wait_for_url(base_url + "/account")
+            with page.expect_response(
+                lambda response: (
+                    response.request.method == "POST"
+                    and urlsplit(response.url).path == "/api/v1/auth/register"
+                )
+            ) as submitted:
+                page.get_by_role("button", name="Создать аккаунт", exact=True).click()
             page.remove_listener("request", record)
+            require(submitted.value.status == 201, "Registration form failed")
             require(
                 requests == ["GET /api/v1/auth/session", "POST /api/v1/auth/register"],
                 "Registration must refresh the session and submit exactly once",
             )
+            page.wait_for_url(base_url + "/account")
             return email, password
 
         register(other)
@@ -143,13 +151,20 @@ def check_auth_forms(browser: Browser, base_url: str) -> dict[str, str]:
                     requests.append(request.method + " " + urlsplit(request.url).path)
 
             page.on("request", record)
-            page.get_by_role("button", name="Войти", exact=True).click()
-            page.wait_for_url(base_url + "/account")
+            with page.expect_response(
+                lambda response: (
+                    response.request.method == "POST"
+                    and urlsplit(response.url).path == "/api/v1/auth/login"
+                )
+            ) as submitted:
+                page.get_by_role("button", name="Войти", exact=True).click()
             page.remove_listener("request", record)
+            require(submitted.value.status == 200, "Login form failed")
             require(
                 requests == ["GET /api/v1/auth/session", "POST /api/v1/auth/login"],
                 "Login must refresh the session and submit exactly once",
             )
+            page.wait_for_url(base_url + "/account")
 
         login(other)
         login(stale)
@@ -254,6 +269,9 @@ def main() -> None:
             page.on("response", record_playback)
             try:
                 report["auth_forms"] = check_auth_forms(browser, base_url)
+                report["account_security"] = check_account_security(
+                    browser, base_url, artifacts
+                )
                 page.goto(f"{base_url}/register")
                 page.get_by_label("Имя", exact=True).fill("Автор проверки видео")
                 owner_email = f"video-e2e-{uuid4().hex}@example.com"
