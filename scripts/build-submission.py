@@ -39,6 +39,8 @@ FORBIDDEN_PARTS = {
 }
 EVIDENCE_NAMES = (
     "check-final.log",
+    "check-packaging.log",
+    "doctor.log",
     "integration-final.log",
     "browser.log",
     "agents-check.log",
@@ -47,6 +49,8 @@ EVIDENCE_NAMES = (
     "dependency-audit-runtime.json",
     "dependency-audit-dev.json",
     "gitleaks-history.json",
+    "gitleaks-history-final.json",
+    "gitleaks-all-objects-final.json",
     "gitleaks-all-objects.json",
     "ubuntu-clean-final.log",
     "ubuntu-bootstrap-final.log",
