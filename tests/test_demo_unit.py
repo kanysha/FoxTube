@@ -5,7 +5,7 @@ from urllib.request import Request
 
 import pytest
 
-from app.demo import DemoError, InternalCookiePolicy, Manifest
+from app.demo import Browser, DemoError, InternalCookiePolicy, Manifest
 
 
 def test_demo_manifest_is_private_and_preserved_on_retry(tmp_path: Path) -> None:
@@ -51,17 +51,21 @@ def test_demo_rejects_fifo_without_waiting_for_writer(
 
 
 @pytest.mark.parametrize(
-    ("url", "sent"),
+    ("url", "domain", "sent"),
     [
-        ("http://nginx:8080/api/v1/auth/me", True),
-        ("http://nginx:8081/api/v1/auth/me", False),
-        ("http://nginx/api/v1/auth/me", False),
-        ("http://external.example/api/v1/auth/me", False),
-        ("https://external.example/api/v1/auth/me", False),
+        ("http://nginx:8080/api/v1/auth/me", "nginx.local", True),
+        ("http://nginx:8081/api/v1/auth/me", "nginx.local", False),
+        ("http://nginx/api/v1/auth/me", "nginx.local", False),
+        ("http://api:8000/api/v1/auth/me", "api.local", True),
+        ("http://api:8001/api/v1/auth/me", "api.local", False),
+        ("http://api/api/v1/auth/me", "api.local", False),
+        ("http://external.example/api/v1/auth/me", "external.example", False),
+        ("http://external.example/api/v1/auth/me", "api.local", False),
+        ("https://external.example/api/v1/auth/me", "api.local", False),
     ],
 )
 def test_secure_demo_cookie_is_limited_to_internal_endpoint(
-    url: str, sent: bool
+    url: str, domain: str, sent: bool
 ) -> None:
     jar = CookieJar(policy=InternalCookiePolicy())
     jar.set_cookie(
@@ -71,7 +75,7 @@ def test_secure_demo_cookie_is_limited_to_internal_endpoint(
             value="disposable-cookie",
             port=None,
             port_specified=False,
-            domain="nginx.local",
+            domain=domain,
             domain_specified=False,
             domain_initial_dot=False,
             path="/",
@@ -87,3 +91,35 @@ def test_secure_demo_cookie_is_limited_to_internal_endpoint(
     request = Request(url)
     jar.add_cookie_header(request)
     assert request.has_header("Cookie") is sent
+
+
+@pytest.mark.parametrize("scheme", ["http", "https"])
+def test_demo_transport_retains_public_origin_and_secure_session(scheme: str) -> None:
+    from email.message import Message
+    from io import BytesIO
+    from urllib.request import BaseHandler
+    from urllib.response import addinfourl
+
+    class Transport(BaseHandler):
+        # Intercept only the transport; use the real opener and CookieJar.
+        handler_order = 400
+
+        def http_open(self, request: Request) -> addinfourl:
+            assert request.host == ("api:8000" if scheme == "https" else "nginx:8080")
+            assert request.get_header("Host") == "demo.example"
+            assert request.get_header("Origin") == f"{scheme}://demo.example"
+            headers = Message()
+            if request.get_method() == "GET":
+                headers["Set-Cookie"] = "session=synthetic; Secure; HttpOnly; Path=/"
+            else:
+                assert request.get_header("Cookie") == "session=synthetic"
+                assert request.get_header("X-csrf-token") == "synthetic-csrf"
+            result = addinfourl(BytesIO(b"{}"), headers, request.full_url, 200)
+            result.msg = "OK"
+            return result
+
+    browser = Browser(f"{scheme}://demo.example")
+    browser.opener.add_handler(Transport())
+    browser.call("GET", "/api/v1/auth/session")
+    browser.csrf = "synthetic-csrf"
+    browser.call("POST", "/api/v1/auth/logout", {})

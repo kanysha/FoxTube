@@ -13,7 +13,7 @@
 <h2 class="channel-section-title">Видео</h2>
 {% if videos['items'] %}
   {{ video_grid(videos['items']) }}
-  {{ pagination(videos, '/channels/' ~ channel.id) }}
+  {{ pagination(videos, '/channels/' ~ channel.id, playlist_page=playlists.page) }}
 {% else %}
   <section class="empty-state"><h2>Пока нет доступных видео</h2><p class="empty-description">Здесь появятся опубликованные видео автора, которые вы можете смотреть.</p>{% if channel.can_manage %}<a class="text-link" href="/upload">Загрузить первое видео →</a>{% endif %}</section>
 {% endif %}

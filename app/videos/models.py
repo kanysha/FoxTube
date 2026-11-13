@@ -38,7 +38,8 @@ class Video(Base):
         ),
         CheckConstraint(
             "status <> 'READY' OR (playback_key IS NOT NULL AND "
-            "poster_key IS NOT NULL AND duration > 0 AND width > 0 AND height > 0)",
+            "poster_key IS NOT NULL AND duration IS NOT NULL AND duration > 0 AND "
+            "width IS NOT NULL AND width > 0 AND height IS NOT NULL AND height > 0)",
             name="videos_ready_artifacts",
         ),
         Index("ix_videos_owner_created", "owner_id", "created_at"),
