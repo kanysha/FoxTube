@@ -25,12 +25,12 @@
 </section>
 {% endmacro %}
 
-{% macro pagination(videos, path, query='') %}
+{% macro pagination(videos, path, query='', playlist_page=none) %}
 {% if videos.total > videos.page_size or videos.page > 1 %}
 <nav class="pagination" aria-label="Страницы видео">
-  {% if videos.page > 1 %}<a class="secondary-button" href="{{ path }}?page={{ videos.page - 1 }}{% if query %}&amp;q={{ query | urlencode }}{% endif %}">← Назад</a>{% endif %}
+  {% if videos.page > 1 %}<a class="secondary-button" href="{{ path }}?page={{ videos.page - 1 }}{% if query %}&amp;q={{ query | urlencode }}{% endif %}{% if playlist_page is not none %}&amp;playlist_page={{ playlist_page }}{% endif %}">← Назад</a>{% endif %}
   <span>Страница {{ videos.page }}</span>
-  {% if videos.page * videos.page_size < videos.total %}<a class="secondary-button" href="{{ path }}?page={{ videos.page + 1 }}{% if query %}&amp;q={{ query | urlencode }}{% endif %}">Далее →</a>{% endif %}
+  {% if videos.page * videos.page_size < videos.total %}<a class="secondary-button" href="{{ path }}?page={{ videos.page + 1 }}{% if query %}&amp;q={{ query | urlencode }}{% endif %}{% if playlist_page is not none %}&amp;playlist_page={{ playlist_page }}{% endif %}">Далее →</a>{% endif %}
 </nav>
 {% endif %}
 {% endmacro %}

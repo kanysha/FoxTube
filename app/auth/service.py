@@ -10,7 +10,13 @@ from fastapi import HTTPException
 from sqlalchemy import Connection, Engine, delete, func, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
-from app.auth.models import AuthRateLimit, AuthSession, Channel, User
+from app.auth.models import (
+    AuthRateLimit,
+    AuthSession,
+    Channel,
+    PasswordResetToken,
+    User,
+)
 from app.auth.passwords import hash_password, verify_password
 from app.auth.rate_limits import check_limits
 from app.auth.schemas import RegisterInput, SessionView, UserView
@@ -139,6 +145,10 @@ def register(
     state = new_session(user)
     try:
         with engine.begin() as connection:
+            if old.user is not None:
+                connection.execute(
+                    select(User.id).where(User.id == old.user.id).with_for_update()
+                )
             consume_session(connection, old)
             connection.execute(
                 insert(User).values(
@@ -186,6 +196,21 @@ def login(
     )
     state = new_session(user)
     with engine.begin() as connection:
+        # Account locks serialize login with password/reset/revocation. If a
+        # signed-in account switches identity, lock both users in UUID order.
+        user_ids = {user.id}
+        if old.user is not None:
+            user_ids.add(old.user.id)
+        locked = dict(
+            connection.execute(
+                select(User.id, User.password_hash)
+                .where(User.id.in_(user_ids))
+                .order_by(User.id)
+                .with_for_update()
+            ).all()
+        )
+        if locked.get(user.id) != encoded:
+            raise HTTPException(401, "Неверный email или пароль.")
         consume_session(connection, old)
         if replacement:
             connection.execute(
@@ -204,6 +229,9 @@ def logout(engine: Engine, old: SessionContext) -> SessionContext:
         return old
     state = new_session()
     with engine.begin() as connection:
+        connection.execute(
+            select(User.id).where(User.id == old.user.id).with_for_update()
+        )
         consume_session(connection, old)
         store_session(connection, state)
     return state
@@ -224,3 +252,16 @@ def cleanup_auth(connection: Connection) -> None:
         .limit(500)
     )
     connection.execute(delete(AuthRateLimit).where(AuthRateLimit.key.in_(limit_keys)))
+    reset_ids = (
+        select(PasswordResetToken.id)
+        .where(
+            or_(
+                PasswordResetToken.expires_at < cutoff,
+                PasswordResetToken.used_at < cutoff,
+            )
+        )
+        .limit(500)
+    )
+    connection.execute(
+        delete(PasswordResetToken).where(PasswordResetToken.id.in_(reset_ids))
+    )

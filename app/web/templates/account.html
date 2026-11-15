@@ -25,4 +25,28 @@
     <a class="secondary-button" href="/studio">Мои видео</a>
   </div>
 </section>
+<section class="account-card account-security" aria-labelledby="password-title">
+  <h2 id="password-title">Смена пароля</h2>
+  <p class="form-hint">После смены пароля остальные сеансы завершатся. На этом устройстве вы останетесь в аккаунте.</p>
+  <form class="auth-form" method="post" data-account-action="change" novalidate>
+    <div class="form-field"><label for="current-password">Текущий пароль</label><input id="current-password" name="current_password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required></div>
+    <div class="form-field"><label for="new-password">Новый пароль</label><input id="new-password" name="new_password" type="password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="password-hint" required><p class="form-hint" id="password-hint">От 12 до 128 символов. Используйте уникальный пароль.</p></div>
+    <div class="form-field"><label for="confirm-password">Повторите новый пароль</label><input id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+    <p class="form-message" data-account-message role="status" aria-live="polite" tabindex="-1" hidden></p>
+    <button class="primary-button" type="submit">Сменить пароль</button>
+    <noscript><p class="form-hint">Для управления аккаунтом включите JavaScript.</p></noscript>
+  </form>
+</section>
+<section class="account-card account-security" data-sessions aria-labelledby="sessions-title">
+  <h2 id="sessions-title">Активные сеансы</h2>
+  <p class="form-hint">Здесь показаны входы в аккаунт и срок их действия. Завершите сеанс, если больше им не пользуетесь.</p>
+  <p class="form-hint" data-sessions-message role="status" aria-live="polite">Загружаем сеансы…</p>
+  <ul class="session-list" data-sessions-list></ul>
+  <div class="button-row session-pagination"><button class="secondary-button" type="button" data-sessions-previous hidden>Назад</button><button class="secondary-button" type="button" data-sessions-next hidden>Далее</button></div>
+  <form class="auth-form" method="post" data-account-action="revoke-others">
+    <p class="form-message" data-account-message role="status" aria-live="polite" tabindex="-1" hidden></p>
+    <button class="secondary-button" type="submit">Завершить другие сеансы</button>
+  </form>
+  <p class="form-hint">Следующие запросы завершённого сеанса будут запрещены. Уже полученные файлы и начатую передачу отозвать нельзя.</p>
+</section>
 {% endblock %}

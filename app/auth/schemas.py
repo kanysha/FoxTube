@@ -52,3 +52,59 @@ class SessionView(BaseModel):
     user: UserView | None
     csrf_token: str
     expires_at: datetime
+
+
+class PasswordChangeInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: SecretStr = Field(min_length=12, max_length=128)
+    new_password: SecretStr = Field(min_length=12, max_length=128)
+
+    @field_validator("current_password", "new_password", mode="before")
+    @classmethod
+    def valid_passwords(cls, value: object) -> object:
+        return LoginInput.valid_password_encoding(value)
+
+
+class PasswordForgotInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr = Field(max_length=254)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        return LoginInput.normalize_email(value)
+
+
+class PasswordResetInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: SecretStr = Field(min_length=43, max_length=43)
+    new_password: SecretStr = Field(min_length=12, max_length=128)
+
+    @field_validator("new_password", mode="before")
+    @classmethod
+    def valid_password(cls, value: object) -> object:
+        return LoginInput.valid_password_encoding(value)
+
+
+class ActiveSessionView(BaseModel):
+    id: UUID
+    created_at: datetime
+    expires_at: datetime
+    current: bool
+
+
+class SessionListView(BaseModel):
+    items: list[ActiveSessionView]
+    page: int
+    has_more: bool
+
+
+class RevokedSessionsView(BaseModel):
+    revoked: int
+
+
+class AuthMessageView(BaseModel):
+    message: str

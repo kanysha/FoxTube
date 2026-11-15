@@ -117,8 +117,8 @@ class Manifest:
 class InternalCookiePolicy(DefaultCookiePolicy):
     def return_ok_secure(self, cookie: Cookie, request: Request) -> bool:
         # HTTPS deployments issue Secure cookies. The demo runs inside the
-        # Compose network and deliberately uses only this fixed internal URL.
-        if request.type == "http" and request.host == "nginx:8080":
+        # Compose network and deliberately uses only fixed internal endpoints.
+        if request.type == "http" and request.host in {"nginx:8080", "api:8000"}:
             return True
         return super().return_ok_secure(cookie, request)
 
@@ -135,6 +135,14 @@ class Browser:
     def __init__(self, origin: str) -> None:
         self.origin = origin
         self.host = urlsplit(origin).netloc
+        # The TLS Nginx profile exposes only health checks on its HTTP port.
+        # Seed through the existing private API network, retaining public
+        # Host/Origin and the application's normal authentication and CSRF.
+        self.endpoint = (
+            "http://api:8000"
+            if urlsplit(origin).scheme == "https"
+            else "http://nginx:8080"
+        )
         self.opener = build_opener(
             HTTPCookieProcessor(CookieJar(policy=InternalCookiePolicy())), NoRedirect()
         )
@@ -158,7 +166,7 @@ class Browser:
             else None
         )
         request = Request(
-            "http://nginx:8080" + path,
+            self.endpoint + path,
             data=body,
             method=method,
             headers={

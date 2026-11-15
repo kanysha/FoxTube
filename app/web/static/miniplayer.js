@@ -180,10 +180,13 @@
       const response = await fetch(url.href, { headers: { Accept: 'text/html' }, credentials: 'same-origin', mode: 'same-origin', cache: 'no-store', signal });
       if (!validAttempt()) return false;
       const final = new URL(response.url);
-      if (!response.ok || !allowed(final) || !response.headers.get('content-type')?.startsWith('text/html')) { if (!automatic) native(url); return false; }
+      if (!allowed(final) || !response.headers.get('content-type')?.startsWith('text/html')) { if (!automatic) native(url); return false; }
       const html = await response.text();
       if (!validAttempt()) return false;
       const doc = new DOMParser().parseFromString(html, 'text/html');
+      // Only our complete server error pages participate in manual navigation.
+      // Autoplay must keep the current video when the next one is unavailable.
+      if (!response.ok && (automatic || !doc.querySelector(`#main-content [data-error-status="${response.status}"]`))) { if (!automatic) native(url); return false; }
       const required = ['#main-content', '.site-header', '#site-sidebar', '[data-menu-backdrop]'];
       if (doc.querySelector('meta[name="foxtube-shell"]')?.content !== 'miniplayer-v1' || required.some((selector) => !doc.querySelector(selector)) || !identity(doc)) { if (!automatic) native(url); return false; }
       if (!window.FoxTubePage.canNavigate()) { if (!automatic) native(url); return false; }

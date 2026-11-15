@@ -75,6 +75,13 @@ services:
       <<: *app-environment
       FOXTUBE_DB_USER: foxtube_api
       FOXTUBE_DB_PASSWORD: ${API_DB_PASSWORD:?Run bash scripts/bootstrap.sh to create .env}
+      FOXTUBE_SMTP_HOST: ${FOXTUBE_SMTP_HOST:-}
+      FOXTUBE_SMTP_PORT: ${FOXTUBE_SMTP_PORT:-587}
+      FOXTUBE_SMTP_USERNAME: ${FOXTUBE_SMTP_USERNAME:-}
+      FOXTUBE_SMTP_PASSWORD: ${FOXTUBE_SMTP_PASSWORD:-}
+      FOXTUBE_SMTP_FROM: ${FOXTUBE_SMTP_FROM:-}
+      FOXTUBE_SMTP_SECURITY: ${FOXTUBE_SMTP_SECURITY:-starttls}
+      FOXTUBE_SMTP_TIMEOUT: ${FOXTUBE_SMTP_TIMEOUT:-10}
     networks: [frontend, backend]
     depends_on:
       db:

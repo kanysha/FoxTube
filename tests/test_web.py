@@ -1,9 +1,13 @@
+from datetime import UTC, datetime
 from html import escape
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.videos.schemas import VideoPage
+from app.channels.schemas import ChannelView
+from app.social.schemas import PlaylistPage
+from app.videos.schemas import VideoPage, VideoView
 
 
 @pytest.fixture(autouse=True)
@@ -38,6 +42,61 @@ def test_channel_handle_rejects_invalid_text_before_database_access(
 ) -> None:
     assert client.get("/@bad%00handle").status_code == 422
     assert client.get("/@" + "a" * 81).status_code == 422
+
+
+def test_channel_video_pagination_preserves_playlist_page(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    channel_id, owner_id, video_id = uuid4(), uuid4(), uuid4()
+    created_at = datetime.now(UTC)
+    channel = ChannelView(
+        id=channel_id,
+        handle="pagination-channel",
+        title="Канал с несколькими страницами",
+        created_at=created_at,
+        can_manage=False,
+        videos_count=60,
+    )
+    video = VideoView(
+        id=video_id,
+        title="Видео второй страницы",
+        description="",
+        visibility="public",
+        status="READY",
+        error=None,
+        duration=10,
+        width=320,
+        height=180,
+        created_at=created_at,
+        owner_id=owner_id,
+        channel_id=channel_id,
+        channel_name=channel.title,
+        can_manage=False,
+        playback_url=f"/media/videos/{video_id}/playback",
+        poster_url=f"/media/videos/{video_id}/poster",
+    )
+    monkeypatch.setattr("app.web.routes.get_channel", lambda *a, **kw: channel)
+    monkeypatch.setattr(
+        "app.web.routes.list_videos",
+        lambda *a, **kw: VideoPage(
+            items=[video], page=kw["page"], page_size=20, total=60
+        ),
+    )
+    monkeypatch.setattr(
+        "app.web.routes.channel_playlists",
+        lambda *a, **kw: PlaylistPage(
+            items=[], page=kw["page"], page_size=20, total=60
+        ),
+    )
+
+    response = client.get(f"/channels/{channel_id}?page=2&playlist_page=2")
+
+    assert response.status_code == 200
+    for target_page in (1, 3):
+        assert (
+            f'href="/channels/{channel_id}?page={target_page}&amp;playlist_page=2"'
+            in response.text
+        )
 
 
 def test_local_swagger_and_openapi(client: TestClient) -> None:
